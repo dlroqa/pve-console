@@ -72,4 +72,16 @@ describe("Proxmox API token storage (spec §9.2, §9.3 — Phase 9 acceptance)",
       ProxmoxApiError,
     );
   });
+
+  it("guest control actions fail cleanly without a token (spec §11)", async () => {
+    await expect(svc.startGuest(profileId, "pve", "qemu", 100)).rejects.toBeInstanceOf(
+      ProxmoxApiError,
+    );
+    await expect(svc.stopGuest(profileId, "pve", "qemu", 100)).rejects.toBeInstanceOf(
+      ProxmoxApiError,
+    );
+    await expect(
+      svc.createSnapshot(profileId, "pve", "lxc", 101, "snap1"),
+    ).rejects.toBeInstanceOf(ProxmoxApiError);
+  });
 });

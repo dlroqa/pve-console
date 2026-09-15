@@ -24,6 +24,7 @@ import type { SessionManager, CertificatePrompt } from "./session-manager";
 import type { WebContentsManager, ContentBounds } from "./webcontents-manager";
 import type { ServerProfile } from "../profiles/profile-types";
 import type { ProxmoxService } from "../proxmox/proxmox-service";
+import type { GuestType } from "../proxmox/guest-actions";
 
 /**
  * Bridges an async certificate decision from the renderer back to the
@@ -219,6 +220,30 @@ export function registerIpcHandlers(services: AppServices): void {
   handle("proxmox:getSummary", services, (id) => services.proxmox.getSummary(String(id)));
   handle("proxmox:getNodes", services, (id) => services.proxmox.getNodes(String(id)));
   handle("proxmox:getGuests", services, (id) => services.proxmox.getGuests(String(id)));
+
+  // Native VM/LXC controls (Phase 11). The renderer confirms destructive
+  // actions (stop) before invoking; the main process performs the API call.
+  handle("proxmox:startGuest", services, (id, node, type, vmid) =>
+    services.proxmox.startGuest(String(id), String(node), type as GuestType, Number(vmid)),
+  );
+  handle("proxmox:shutdownGuest", services, (id, node, type, vmid) =>
+    services.proxmox.shutdownGuest(String(id), String(node), type as GuestType, Number(vmid)),
+  );
+  handle("proxmox:rebootGuest", services, (id, node, type, vmid) =>
+    services.proxmox.rebootGuest(String(id), String(node), type as GuestType, Number(vmid)),
+  );
+  handle("proxmox:stopGuest", services, (id, node, type, vmid) =>
+    services.proxmox.stopGuest(String(id), String(node), type as GuestType, Number(vmid)),
+  );
+  handle("proxmox:createSnapshot", services, (id, node, type, vmid, snapname) =>
+    services.proxmox.createSnapshot(
+      String(id),
+      String(node),
+      type as GuestType,
+      Number(vmid),
+      String(snapname),
+    ),
+  );
 
   // ---- System ----
   handle("system:chooseDownloadDirectory", services, async () => {

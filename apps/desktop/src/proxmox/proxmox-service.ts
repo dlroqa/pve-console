@@ -20,6 +20,14 @@ import { verifyToken } from "./auth";
 import { listNodes } from "./nodes";
 import { listGuests } from "./guests";
 import { listStorage } from "./storage";
+import {
+  startGuest,
+  shutdownGuest,
+  rebootGuest,
+  stopGuest,
+  createSnapshot,
+  type GuestType,
+} from "./guest-actions";
 import type { ProfileManager } from "../profiles/profile-manager";
 import type { CertificateManager } from "../certificates/certificate-manager";
 import type {
@@ -137,6 +145,35 @@ export class ProxmoxService {
 
   async getGuests(profileId: string): Promise<GuestSummary[]> {
     return listGuests(await this.buildClient(profileId));
+  }
+
+  // ---- Native VM/LXC controls (Phase 11). Destructive actions (stop) are
+  // confirmed in the UI before reaching here (spec §11). ----
+
+  async startGuest(profileId: string, node: string, type: GuestType, vmid: number): Promise<string> {
+    return startGuest(await this.buildClient(profileId), node, type, vmid);
+  }
+
+  async shutdownGuest(profileId: string, node: string, type: GuestType, vmid: number): Promise<string> {
+    return shutdownGuest(await this.buildClient(profileId), node, type, vmid);
+  }
+
+  async rebootGuest(profileId: string, node: string, type: GuestType, vmid: number): Promise<string> {
+    return rebootGuest(await this.buildClient(profileId), node, type, vmid);
+  }
+
+  async stopGuest(profileId: string, node: string, type: GuestType, vmid: number): Promise<string> {
+    return stopGuest(await this.buildClient(profileId), node, type, vmid);
+  }
+
+  async createSnapshot(
+    profileId: string,
+    node: string,
+    type: GuestType,
+    vmid: number,
+    snapname: string,
+  ): Promise<string> {
+    return createSnapshot(await this.buildClient(profileId), node, type, vmid, snapname);
   }
 
   /** Aggregate read-only dashboard data (spec §9.4, §10). */

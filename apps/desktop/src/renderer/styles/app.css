@@ -551,3 +551,45 @@ a {
   background: linear-gradient(90deg, var(--accent), var(--ok));
   transition: width 0.3s ease;
 }
+.guest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 680px;
+}
+.guest-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.guest-row .vmid {
+  width: 48px;
+  font-family: ui-monospace, Menlo, monospace;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.guest-row .gname {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.guest-row .status {
+  width: 96px;
+  flex-shrink: 0;
+}
+.guest-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.guest-actions button {
+  padding: 5px 10px;
+  font-size: 12px;
+}
