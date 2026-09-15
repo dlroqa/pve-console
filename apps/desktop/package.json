@@ -1,9 +1,12 @@
 {
   "name": "pve-console-desktop",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "PVE Console desktop application (Electron + React + TypeScript + Vite).",
-  "author": "PVE Console",
+  "author": {
+    "name": "PVE Console",
+    "email": "pve-console@users.noreply.github.com"
+  },
   "license": "MIT",
   "main": "dist/main/main.js",
   "scripts": {
@@ -16,7 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "package": "npm run build && electron-builder --config electron-builder.yml"
+    "package": "npm run build && electron-builder --config electron-builder.yml --publish never"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",

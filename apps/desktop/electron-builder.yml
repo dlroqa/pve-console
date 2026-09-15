@@ -33,4 +33,4 @@ linux:
     - AppImage
     - deb
   category: Utility
-  maintainer: PVE Console
+  maintainer: PVE Console <pve-console@users.noreply.github.com>
