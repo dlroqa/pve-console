@@ -24,7 +24,8 @@
     "src/certificates",
     "src/proxmox",
     "src/storage",
-    "src/shared"
+    "src/shared",
+    "src/ai"
   ],
   "exclude": ["src/renderer"]
 }

@@ -25,6 +25,9 @@ import type { WebContentsManager, ContentBounds } from "./webcontents-manager";
 import type { ServerProfile } from "../profiles/profile-types";
 import type { ProxmoxService } from "../proxmox/proxmox-service";
 import type { GuestType } from "../proxmox/guest-actions";
+import { AiError } from "../ai/ai-service";
+import type { AiService } from "../ai/ai-service";
+import type { AiAnalysisKind } from "../ai/ai-types";
 
 /**
  * Bridges an async certificate decision from the renderer back to the
@@ -87,6 +90,7 @@ export interface AppServices {
   webContents: WebContentsManager;
   promptBridge: CertificatePromptBridge;
   proxmox: ProxmoxService;
+  ai: AiService;
   getSettings: () => AppSettings;
   setSettings: (s: AppSettings) => Promise<AppSettings>;
 }
@@ -96,6 +100,9 @@ function toAppError(err: unknown, devDiagnostics: boolean): AppError {
     return { code: ErrorCode.PROFILE_ERROR, message: err.message };
   }
   if (err instanceof ProxmoxApiError) {
+    return err.appError;
+  }
+  if (err instanceof AiError) {
     return err.appError;
   }
   const message = err instanceof Error ? err.message : "An unexpected error occurred.";
@@ -243,6 +250,21 @@ export function registerIpcHandlers(services: AppServices): void {
       Number(vmid),
       String(snapname),
     ),
+  );
+
+  // ---- Optional AI assistant (Phase 12) ----
+  // Advisory only: analysis/recommendations; never executes actions (spec §12).
+  handle("ai:getStatus", services, () => services.ai.getStatus());
+  handle("ai:setApiKey", services, async (key) => {
+    await services.ai.setApiKey(String(key));
+    return true;
+  });
+  handle("ai:removeApiKey", services, async () => {
+    await services.ai.removeApiKey();
+    return true;
+  });
+  handle("ai:analyze", services, (profileId, kind, input) =>
+    services.ai.analyze(String(profileId), kind as AiAnalysisKind, input == null ? undefined : String(input)),
   );
 
   // ---- System ----

@@ -3,6 +3,7 @@ import type { AppSettings } from "../../shared/types";
 import type { ServerProfile } from "../../profiles/profile-types";
 import type { CertificatePin } from "../../certificates/certificate-types";
 import type { ApiTokenStatus } from "../../proxmox/proxmox-types";
+import type { AiStatus } from "../../ai/ai-types";
 import { unwrap, errorMessage } from "../ipc";
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
 export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.Element {
   const [pins, setPins] = useState<CertificatePin[]>([]);
   const [tokenStatuses, setTokenStatuses] = useState<Record<string, ApiTokenStatus>>({});
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [aiKey, setAiKey] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +43,33 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
       await unwrap(window.pve.proxmox.removeToken(id));
       setNotice(`API token removed for “${name}”. Browser mode is unaffected.`);
       await loadTokenStatuses();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
+  useEffect(() => {
+    unwrap(window.pve.ai.getStatus())
+      .then(setAiStatus)
+      .catch((e) => setError(errorMessage(e)));
+  }, []);
+
+  const saveAiKey = async () => {
+    try {
+      await unwrap(window.pve.ai.setApiKey(aiKey.trim()));
+      setAiKey("");
+      setNotice("AI assistant enabled. Its analysis is advisory only.");
+      setAiStatus(await unwrap(window.pve.ai.getStatus()));
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
+  const removeAiKey = async () => {
+    try {
+      await unwrap(window.pve.ai.removeApiKey());
+      setNotice("AI assistant disabled.");
+      setAiStatus(await unwrap(window.pve.ai.getStatus()));
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -217,6 +247,45 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
               </div>
             );
           })}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: 16, marginTop: 30 }}>AI Assistant (optional)</h2>
+      <div className="banner info">
+        Advisory only. When enabled, the assistant sends read-only cluster summaries to Anthropic
+        for analysis and never performs actions. The API key is stored encrypted.
+      </div>
+      {aiStatus?.configured ? (
+        <div className="card" style={{ maxWidth: 520 }}>
+          <div className="kv-table">
+            <span className="k">Status</span>
+            <span className="v">Enabled</span>
+            <span className="k">Model</span>
+            <span className="v">{aiStatus.model}</span>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <button className="danger" onClick={removeAiKey}>
+              Disable &amp; remove key
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="card" style={{ maxWidth: 520 }}>
+          <div className="field">
+            <label>Anthropic API key</label>
+            <input
+              type="password"
+              value={aiKey}
+              onChange={(e) => setAiKey(e.target.value)}
+              placeholder="sk-ant-…  (stored encrypted via the OS credential store)"
+              autoComplete="off"
+            />
+          </div>
+          <div className="form-actions" style={{ marginTop: 12 }}>
+            <button className="primary" onClick={saveAiKey} disabled={aiKey.trim().length < 8}>
+              Enable Assistant
+            </button>
+          </div>
         </div>
       )}
 

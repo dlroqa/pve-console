@@ -13,6 +13,7 @@ interface Props {
   crashReason: string | null;
   loadError: string | null;
   onOpenDiagnostics: () => void;
+  onOpenSettings: () => void;
   onClearError: () => void;
 }
 
@@ -22,6 +23,7 @@ export function ServerWorkspace({
   crashReason,
   loadError,
   onOpenDiagnostics,
+  onOpenSettings,
   onClearError,
 }: Props): JSX.Element {
   const [mode, setMode] = useState<Mode>("proxmox");
@@ -136,7 +138,11 @@ export function ServerWorkspace({
           )}
         </div>
       ) : (
-        <NativeDashboard profile={profile} onOpenProxmox={() => setMode("proxmox")} />
+        <NativeDashboard
+          profile={profile}
+          onOpenProxmox={() => setMode("proxmox")}
+          onOpenSettings={onOpenSettings}
+        />
       )}
     </div>
   );
