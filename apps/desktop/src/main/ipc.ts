@@ -16,12 +16,14 @@ import { logger, setLogLevel } from "../shared/logger";
 import { normalizeSettings } from "../shared/settings";
 import { runDiagnostics } from "../diagnostics/diagnostics-engine";
 import { ProfileValidationError } from "../profiles/profile-schema";
+import { ProxmoxApiError } from "../proxmox/client";
 import type { ProfileManager } from "../profiles/profile-manager";
 import type { CertificateManager } from "../certificates/certificate-manager";
 import type { CertificateDecision, CertificateEvaluation } from "../certificates/certificate-types";
 import type { SessionManager, CertificatePrompt } from "./session-manager";
 import type { WebContentsManager, ContentBounds } from "./webcontents-manager";
 import type { ServerProfile } from "../profiles/profile-types";
+import type { ProxmoxService } from "../proxmox/proxmox-service";
 
 /**
  * Bridges an async certificate decision from the renderer back to the
@@ -83,6 +85,7 @@ export interface AppServices {
   sessions: SessionManager;
   webContents: WebContentsManager;
   promptBridge: CertificatePromptBridge;
+  proxmox: ProxmoxService;
   getSettings: () => AppSettings;
   setSettings: (s: AppSettings) => Promise<AppSettings>;
 }
@@ -90,6 +93,9 @@ export interface AppServices {
 function toAppError(err: unknown, devDiagnostics: boolean): AppError {
   if (err instanceof ProfileValidationError) {
     return { code: ErrorCode.PROFILE_ERROR, message: err.message };
+  }
+  if (err instanceof ProxmoxApiError) {
+    return err.appError;
   }
   const message = err instanceof Error ? err.message : "An unexpected error occurred.";
   return {
@@ -196,6 +202,23 @@ export function registerIpcHandlers(services: AppServices): void {
   // ---- Settings (Phase 2 / §23) ----
   handle("settings:get", services, () => services.getSettings());
   handle("settings:set", services, (settings) => services.setSettings(normalizeSettings(settings)));
+
+  // ---- Native Proxmox API (Phase 9, Version 2) ----
+  // These are read-only and isolated from the embedded browser: any failure
+  // here surfaces as a structured error and never disturbs browser mode.
+  handle("proxmox:getTokenStatus", services, (id) => services.proxmox.getTokenStatus(String(id)));
+  handle("proxmox:setToken", services, async (id, tokenName, tokenSecret) => {
+    await services.proxmox.setToken(String(id), String(tokenName), String(tokenSecret));
+    return true;
+  });
+  handle("proxmox:removeToken", services, async (id) => {
+    await services.proxmox.removeToken(String(id));
+    return true;
+  });
+  handle("proxmox:verifyToken", services, (id) => services.proxmox.verify(String(id)));
+  handle("proxmox:getSummary", services, (id) => services.proxmox.getSummary(String(id)));
+  handle("proxmox:getNodes", services, (id) => services.proxmox.getNodes(String(id)));
+  handle("proxmox:getGuests", services, (id) => services.proxmox.getGuests(String(id)));
 
   // ---- System ----
   handle("system:chooseDownloadDirectory", services, async () => {

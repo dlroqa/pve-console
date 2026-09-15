@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ServerProfile } from "../../profiles/profile-types";
 import type { NavigationState } from "../../main/webcontents-manager";
-import type { ServerStatus } from "../../shared/types";
 import { NavigationControls } from "../components/NavigationControls";
+import { NativeDashboard } from "../components/NativeDashboard";
 import { unwrap, errorMessage } from "../ipc";
 
 type Mode = "proxmox" | "native";
 
 interface Props {
   profile: ServerProfile;
-  status: ServerStatus;
   nav: NavigationState | null;
   crashReason: string | null;
   loadError: string | null;
@@ -19,7 +18,6 @@ interface Props {
 
 export function ServerWorkspace({
   profile,
-  status,
   nav,
   crashReason,
   loadError,
@@ -138,52 +136,8 @@ export function ServerWorkspace({
           )}
         </div>
       ) : (
-        <NativeServerPage profile={profile} status={status} onOpenProxmox={() => setMode("proxmox")} />
+        <NativeDashboard profile={profile} onOpenProxmox={() => setMode("proxmox")} />
       )}
-    </div>
-  );
-}
-
-/** Native Server Page (spec §35). Static info only — no API calls in V1. */
-function NativeServerPage({
-  profile,
-  status,
-  onOpenProxmox,
-}: {
-  profile: ServerProfile;
-  status: ServerStatus;
-  onOpenProxmox: () => void;
-}): JSX.Element {
-  return (
-    <div className="page">
-      <h1>{profile.name}</h1>
-      <p className="subtitle">
-        {profile.host}:{profile.port}
-      </p>
-      <div className="card" style={{ maxWidth: 520 }}>
-        <div className="kv-table">
-          <span className="k">Status</span>
-          <span className="v">{status}</span>
-          <span className="k">Protocol</span>
-          <span className="v">{profile.protocol}</span>
-          <span className="k">Connection</span>
-          <span className="v">{profile.connectionMode}</span>
-          <span className="k">Certificate</span>
-          <span className="v">
-            {profile.certificateMode}
-            {profile.pinnedFingerprint ? " (pinned)" : ""}
-          </span>
-        </div>
-        <div style={{ marginTop: 16 }}>
-          <button className="primary" onClick={onOpenProxmox}>
-            Open Proxmox
-          </button>
-        </div>
-      </div>
-      <div className="banner info" style={{ marginTop: 20 }}>
-        Native dashboards and metrics arrive in a later version. The full Proxmox web interface is
-        always available via “Open Proxmox”.
-      </div>
     </div>
   );
 }

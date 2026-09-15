@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { AppSettings } from "../../shared/types";
 import type { ServerProfile } from "../../profiles/profile-types";
 import type { CertificatePin } from "../../certificates/certificate-types";
+import type { ApiTokenStatus } from "../../proxmox/proxmox-types";
 import { unwrap, errorMessage } from "../ipc";
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 
 export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.Element {
   const [pins, setPins] = useState<CertificatePin[]>([]);
+  const [tokenStatuses, setTokenStatuses] = useState<Record<string, ApiTokenStatus>>({});
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,6 +22,28 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
       .then(setPins)
       .catch((e) => setError(errorMessage(e)));
   }, []);
+
+  const loadTokenStatuses = async () => {
+    const entries = await Promise.all(
+      profiles.map(async (p) => [p.id, await unwrap(window.pve.proxmox.getTokenStatus(p.id))] as const),
+    );
+    setTokenStatuses(Object.fromEntries(entries));
+  };
+
+  useEffect(() => {
+    loadTokenStatuses().catch((e) => setError(errorMessage(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profiles]);
+
+  const removeToken = async (id: string, name: string) => {
+    try {
+      await unwrap(window.pve.proxmox.removeToken(id));
+      setNotice(`API token removed for “${name}”. Browser mode is unaffected.`);
+      await loadTokenStatuses();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
 
   const save = async (next: AppSettings) => {
     try {
@@ -165,6 +189,34 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: 16, marginTop: 30 }}>Native API tokens</h2>
+      {profiles.length === 0 ? (
+        <div className="empty" style={{ textAlign: "left", padding: "10px 0" }}>
+          No servers configured.
+        </div>
+      ) : (
+        <div className="diag-list">
+          {profiles.map((p) => {
+            const status = tokenStatuses[p.id];
+            return (
+              <div className="diag-row" key={p.id}>
+                <span className="label">{p.name}</span>
+                <span className="msg">
+                  {status?.configured
+                    ? `token ${status.tokenName}`
+                    : "no token — browser mode only"}
+                </span>
+                {status?.configured && (
+                  <button className="ghost" onClick={() => removeToken(p.id, p.name)}>
+                    Remove
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
