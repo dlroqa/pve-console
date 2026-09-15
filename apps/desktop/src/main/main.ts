@@ -12,6 +12,8 @@ import { normalizeSettings, DEFAULT_SETTINGS } from "../shared/settings";
 import { ConfigStore } from "../storage/config-store";
 import { ProfileManager } from "../profiles/profile-manager";
 import { CertificateManager } from "../certificates/certificate-manager";
+import { SecretStore } from "../storage/secret-store";
+import { ProxmoxService } from "../proxmox/proxmox-service";
 import { SessionManager } from "./session-manager";
 import { WebContentsManager } from "./webcontents-manager";
 import { createMainWindow } from "./window-manager";
@@ -54,6 +56,8 @@ async function bootstrap(): Promise<void> {
 
   const profiles = new ProfileManager(configStore);
   const certificates = new CertificateManager(configStore);
+  const secrets = new SecretStore(app.getPath("userData"));
+  const proxmox = new ProxmoxService(profiles, certificates, secrets, configStore);
   const promptBridge = new CertificatePromptBridge();
 
   const emit = (channel: string, payload: unknown): void => {
@@ -74,6 +78,7 @@ async function bootstrap(): Promise<void> {
     sessions,
     webContents,
     promptBridge,
+    proxmox,
     getSettings,
     setSettings,
   };

@@ -41,7 +41,7 @@ export function NavigationControls({
         Open Proxmox
       </button>
       <button className="ghost" onClick={onNativePage}>
-        Native
+        Dashboard
       </button>
       <button className="ghost" onClick={onDiagnostics}>
         Diagnostics

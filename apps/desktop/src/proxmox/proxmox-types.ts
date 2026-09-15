@@ -53,3 +53,28 @@ export interface ClusterSummary {
   running: number;
   stopped: number;
 }
+
+/** Aggregate data for the native dashboard (spec §10, Phase 9.4/§28). */
+export interface DashboardData {
+  cluster: ClusterSummary;
+  /** Fractions in the range 0..1. */
+  cpuUsage: number;
+  memUsage: number;
+  storageUsage: number;
+  nodes: NodeSummary[];
+  guests: GuestSummary[];
+  storage: StorageSummary[];
+}
+
+/** Whether a restricted API token is configured for a profile (never the secret). */
+export interface ApiTokenStatus {
+  configured: boolean;
+  tokenName?: string;
+  createdAt?: string;
+}
+
+/** Persisted (non-secret) API token metadata. The secret lives in SecretStore. */
+export interface ApiTokenMeta {
+  tokenName: string;
+  createdAt: string;
+}

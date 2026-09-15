@@ -33,6 +33,14 @@ export const INVOKE_CHANNELS = [
 
   "system:chooseDownloadDirectory",
   "system:appInfo",
+
+  "proxmox:getTokenStatus",
+  "proxmox:setToken",
+  "proxmox:removeToken",
+  "proxmox:verifyToken",
+  "proxmox:getSummary",
+  "proxmox:getNodes",
+  "proxmox:getGuests",
 ] as const;
 
 export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];

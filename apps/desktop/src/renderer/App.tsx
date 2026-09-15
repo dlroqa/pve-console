@@ -192,7 +192,6 @@ export function App(): JSX.Element {
         return (
           <ServerWorkspace
             profile={activeProfile}
-            status={statuses[activeProfile.id] ?? "connecting"}
             nav={navByServer[activeProfile.id] ?? null}
             crashReason={crashByServer[activeProfile.id] || null}
             loadError={loadErrorByServer[activeProfile.id] || null}

@@ -60,6 +60,16 @@ const api = {
     chooseDownloadDirectory: () => ipcRenderer.invoke("system:chooseDownloadDirectory"),
     appInfo: () => ipcRenderer.invoke("system:appInfo"),
   },
+  proxmox: {
+    getTokenStatus: (id: string) => ipcRenderer.invoke("proxmox:getTokenStatus", id),
+    setToken: (id: string, tokenName: string, tokenSecret: string) =>
+      ipcRenderer.invoke("proxmox:setToken", id, tokenName, tokenSecret),
+    removeToken: (id: string) => ipcRenderer.invoke("proxmox:removeToken", id),
+    verifyToken: (id: string) => ipcRenderer.invoke("proxmox:verifyToken", id),
+    getSummary: (id: string) => ipcRenderer.invoke("proxmox:getSummary", id),
+    getNodes: (id: string) => ipcRenderer.invoke("proxmox:getNodes", id),
+    getGuests: (id: string) => ipcRenderer.invoke("proxmox:getGuests", id),
+  },
   /** Subscribe to an allowlisted main->renderer event. Returns an unsubscribe fn. */
   on: (channel: string, listener: (payload: unknown) => void): Unsubscribe => {
     if (!(EVENT_CHANNELS as readonly string[]).includes(channel)) {

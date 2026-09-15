@@ -12,6 +12,12 @@ import type {
 import type { DiagnosticsReport, DiagnosticsTarget } from "../diagnostics/diagnostics-types";
 import type { CertificatePin } from "../certificates/certificate-types";
 import type { ContentBounds } from "../main/webcontents-manager";
+import type {
+  ApiTokenStatus,
+  DashboardData,
+  NodeSummary,
+  GuestSummary,
+} from "../proxmox/proxmox-types";
 
 export interface AppInfo {
   name: string;
@@ -52,6 +58,15 @@ export interface PveBridge {
   system: {
     chooseDownloadDirectory: () => Promise<IpcResult<string | undefined>>;
     appInfo: () => Promise<IpcResult<AppInfo>>;
+  };
+  proxmox: {
+    getTokenStatus: (id: string) => Promise<IpcResult<ApiTokenStatus>>;
+    setToken: (id: string, tokenName: string, tokenSecret: string) => Promise<IpcResult<boolean>>;
+    removeToken: (id: string) => Promise<IpcResult<boolean>>;
+    verifyToken: (id: string) => Promise<IpcResult<{ version: string }>>;
+    getSummary: (id: string) => Promise<IpcResult<DashboardData>>;
+    getNodes: (id: string) => Promise<IpcResult<NodeSummary[]>>;
+    getGuests: (id: string) => Promise<IpcResult<GuestSummary[]>>;
   };
   on: (channel: string, listener: (payload: unknown) => void) => () => void;
 }
