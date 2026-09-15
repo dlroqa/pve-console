@@ -20,6 +20,10 @@ asar: true
 npmRebuild: false
 nodeGypRebuild: false
 
+# Ad-hoc sign the macOS app (see build/after-pack.cjs) so it runs on Apple
+# Silicon while remaining unsigned in the Developer-ID sense.
+afterPack: build/after-pack.cjs
+
 win:
   target:
     - nsis
