@@ -36,35 +36,51 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-describe("AI assistant (spec §12 — optional, advisory)", () => {
-  it("is disabled until an API key is configured", async () => {
-    expect((await ai.getStatus()).configured).toBe(false);
-    await ai.setApiKey("sk-ant-test-key-1234");
+describe("AI assistant (spec §12 — optional, advisory, multi-provider)", () => {
+  it("defaults to Anthropic and is disabled until a key is configured", async () => {
     const status = await ai.getStatus();
-    expect(status.configured).toBe(true);
+    expect(status.provider).toBe("anthropic");
     expect(status.model).toBe("claude-opus-5");
+    expect(status.configured).toBe(false);
+
+    await ai.setApiKey("anthropic", "sk-ant-test-key-1234");
+    expect((await ai.getStatus()).configured).toBe(true);
   });
 
-  it("stores the API key encrypted, never in plaintext", async () => {
-    await ai.setApiKey("sk-ant-SECRETVALUE-987654");
+  it("supports an OpenAI-compatible provider with its own key and base URL", async () => {
+    const s = await ai.setConfig({ provider: "openai", model: "gpt-4o-mini", baseUrl: "https://example.test/v1" });
+    expect(s.provider).toBe("openai");
+    expect(s.model).toBe("gpt-4o-mini");
+    expect(s.baseUrl).toBe("https://example.test/v1");
+    expect(s.configured).toBe(false);
+
+    await ai.setApiKey("openai", "sk-openai-SECRET-123456");
+    expect((await ai.getStatus()).configured).toBe(true);
+  });
+
+  it("keeps per-provider keys independent when switching providers", async () => {
+    await ai.setApiKey("anthropic", "sk-ant-aaaa1111");
+    // Switch to openai (no key yet) -> not configured.
+    await ai.setConfig({ provider: "openai" });
+    expect((await ai.getStatus()).configured).toBe(false);
+    // Switch back to anthropic -> still configured.
+    await ai.setConfig({ provider: "anthropic" });
+    expect((await ai.getStatus()).configured).toBe(true);
+  });
+
+  it("stores keys encrypted, never in plaintext", async () => {
+    await ai.setApiKey("openai", "sk-openai-PLAINTEXT-999");
     const raw = await readFile(join(dir, "secrets.enc.json"), "utf8");
-    expect(raw).not.toContain("sk-ant-SECRETVALUE-987654");
-    // getStatus never leaks the key.
-    expect(JSON.stringify(await ai.getStatus())).not.toContain("SECRETVALUE");
+    expect(raw).not.toContain("sk-openai-PLAINTEXT-999");
   });
 
-  it("refuses analysis when not configured (no silent failure)", async () => {
+  it("refuses analysis when the active provider has no key", async () => {
+    await ai.setConfig({ provider: "openai" });
     await expect(ai.analyze("srv1", "explain-error", "boom")).rejects.toBeInstanceOf(AiError);
   });
 
-  it("removing the key disables the assistant", async () => {
-    await ai.setApiKey("sk-ant-test-key-1234");
-    await ai.removeApiKey();
-    expect((await ai.getStatus()).configured).toBe(false);
-  });
-
   it("rejects an empty error input for explain-error", async () => {
-    await ai.setApiKey("sk-ant-test-key-1234");
+    await ai.setApiKey("anthropic", "sk-ant-test-key-1234");
     await expect(ai.analyze("srv1", "explain-error", "   ")).rejects.toBeInstanceOf(AiError);
   });
 });

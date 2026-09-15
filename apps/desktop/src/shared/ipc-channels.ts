@@ -48,6 +48,7 @@ export const INVOKE_CHANNELS = [
   "proxmox:createSnapshot",
 
   "ai:getStatus",
+  "ai:setConfig",
   "ai:setApiKey",
   "ai:removeApiKey",
   "ai:analyze",

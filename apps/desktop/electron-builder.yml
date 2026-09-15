@@ -9,6 +9,7 @@ directories:
 files:
   - dist/**/*
   - package.json
+  - assets/icon.png
 
 # Do not sign in CI without credentials; signing/notarization is configured per environment.
 asar: true
@@ -22,6 +23,7 @@ nodeGypRebuild: false
 win:
   target:
     - nsis
+  icon: icon.ico
   artifactName: ${productName}-${version}-Setup.${ext}
 
 nsis:
@@ -32,11 +34,17 @@ mac:
   target:
     - dmg
     - zip
+  icon: icon.png
   category: public.app-category.developer-tools
+  # Ship unsigned: no signing identity and no notarization. Users open the app
+  # via right-click > Open (Gatekeeper) the first time.
+  identity: null
+  notarize: false
 
 linux:
   target:
     - AppImage
     - deb
+  icon: icon.png
   category: Utility
   maintainer: PVE Console <pve-console@users.noreply.github.com>

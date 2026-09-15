@@ -27,7 +27,7 @@ import type { ProxmoxService } from "../proxmox/proxmox-service";
 import type { GuestType } from "../proxmox/guest-actions";
 import { AiError } from "../ai/ai-service";
 import type { AiService } from "../ai/ai-service";
-import type { AiAnalysisKind } from "../ai/ai-types";
+import type { AiAnalysisKind, AiProvider } from "../ai/ai-types";
 
 /**
  * Bridges an async certificate decision from the renderer back to the
@@ -255,12 +255,15 @@ export function registerIpcHandlers(services: AppServices): void {
   // ---- Optional AI assistant (Phase 12) ----
   // Advisory only: analysis/recommendations; never executes actions (spec §12).
   handle("ai:getStatus", services, () => services.ai.getStatus());
-  handle("ai:setApiKey", services, async (key) => {
-    await services.ai.setApiKey(String(key));
+  handle("ai:setConfig", services, (input) =>
+    services.ai.setConfig(input as { provider: AiProvider; model?: string; baseUrl?: string }),
+  );
+  handle("ai:setApiKey", services, async (provider, key) => {
+    await services.ai.setApiKey(provider as AiProvider, String(key));
     return true;
   });
-  handle("ai:removeApiKey", services, async () => {
-    await services.ai.removeApiKey();
+  handle("ai:removeApiKey", services, async (provider) => {
+    await services.ai.removeApiKey(provider as AiProvider);
     return true;
   });
   handle("ai:analyze", services, (profileId, kind, input) =>
