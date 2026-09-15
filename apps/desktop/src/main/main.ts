@@ -14,6 +14,7 @@ import { ProfileManager } from "../profiles/profile-manager";
 import { CertificateManager } from "../certificates/certificate-manager";
 import { SecretStore } from "../storage/secret-store";
 import { ProxmoxService } from "../proxmox/proxmox-service";
+import { AiService } from "../ai/ai-service";
 import { SessionManager } from "./session-manager";
 import { WebContentsManager } from "./webcontents-manager";
 import { createMainWindow } from "./window-manager";
@@ -58,6 +59,7 @@ async function bootstrap(): Promise<void> {
   const certificates = new CertificateManager(configStore);
   const secrets = new SecretStore(app.getPath("userData"));
   const proxmox = new ProxmoxService(profiles, certificates, secrets, configStore);
+  const ai = new AiService(secrets, configStore, proxmox);
   const promptBridge = new CertificatePromptBridge();
 
   const emit = (channel: string, payload: unknown): void => {
@@ -79,6 +81,7 @@ async function bootstrap(): Promise<void> {
     webContents,
     promptBridge,
     proxmox,
+    ai,
     getSettings,
     setSettings,
   };

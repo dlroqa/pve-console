@@ -46,6 +46,11 @@ export const INVOKE_CHANNELS = [
   "proxmox:rebootGuest",
   "proxmox:stopGuest",
   "proxmox:createSnapshot",
+
+  "ai:getStatus",
+  "ai:setApiKey",
+  "ai:removeApiKey",
+  "ai:analyze",
 ] as const;
 
 export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];

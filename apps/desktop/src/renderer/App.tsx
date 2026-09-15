@@ -198,6 +198,7 @@ export function App(): JSX.Element {
             onOpenDiagnostics={() =>
               setRoute({ name: "diagnostics", serverId: activeProfile.id })
             }
+            onOpenSettings={() => setRoute({ name: "settings" })}
             onClearError={() => clearActiveError(activeProfile.id)}
           />
         );

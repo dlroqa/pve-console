@@ -4,10 +4,12 @@ import type { DashboardData, ApiTokenStatus, GuestSummary } from "../../proxmox/
 import { unwrap, errorMessage } from "../ipc";
 import { TokenConfig } from "./TokenConfig";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { AiAssistant } from "./AiAssistant";
 
 interface Props {
   profile: ServerProfile;
   onOpenProxmox: () => void;
+  onOpenSettings: () => void;
 }
 
 function pct(fraction: number): string {
@@ -40,7 +42,7 @@ type ConfirmKind = "shutdown" | "reboot" | "stop";
 type GuestT = "qemu" | "lxc";
 
 /** Native dashboard + VM/LXC controls (spec §10, §11). The embedded Proxmox UI stays available. */
-export function NativeDashboard({ profile, onOpenProxmox }: Props): JSX.Element {
+export function NativeDashboard({ profile, onOpenProxmox, onOpenSettings }: Props): JSX.Element {
   const [tokenStatus, setTokenStatus] = useState<ApiTokenStatus | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -261,6 +263,9 @@ export function NativeDashboard({ profile, onOpenProxmox }: Props): JSX.Element 
               </Fragment>
             ))}
           </div>
+
+          <h2 style={{ fontSize: 16, marginTop: 26 }}>AI Assistant</h2>
+          <AiAssistant profileId={profile.id} onOpenSettings={onOpenSettings} />
         </>
       )}
 

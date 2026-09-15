@@ -80,6 +80,13 @@ const api = {
     createSnapshot: (id: string, node: string, type: string, vmid: number, snapname: string) =>
       ipcRenderer.invoke("proxmox:createSnapshot", id, node, type, vmid, snapname),
   },
+  ai: {
+    getStatus: () => ipcRenderer.invoke("ai:getStatus"),
+    setApiKey: (key: string) => ipcRenderer.invoke("ai:setApiKey", key),
+    removeApiKey: () => ipcRenderer.invoke("ai:removeApiKey"),
+    analyze: (profileId: string, kind: string, input?: string) =>
+      ipcRenderer.invoke("ai:analyze", profileId, kind, input),
+  },
   /** Subscribe to an allowlisted main->renderer event. Returns an unsubscribe fn. */
   on: (channel: string, listener: (payload: unknown) => void): Unsubscribe => {
     if (!(EVENT_CHANNELS as readonly string[]).includes(channel)) {

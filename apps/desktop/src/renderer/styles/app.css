@@ -593,3 +593,13 @@ a {
   padding: 5px 10px;
   font-size: 12px;
 }
+.ai-output {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 13.5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  color: var(--text);
+}
