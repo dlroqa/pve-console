@@ -18,7 +18,7 @@ import type {
   NodeSummary,
   GuestSummary,
 } from "../proxmox/proxmox-types";
-import type { AiStatus, AiAnalysisResult } from "../ai/ai-types";
+import type { AiStatus, AiAnalysisResult, AiProvider } from "../ai/ai-types";
 
 export interface AppInfo {
   name: string;
@@ -82,8 +82,13 @@ export interface PveBridge {
   };
   ai: {
     getStatus: () => Promise<IpcResult<AiStatus>>;
-    setApiKey: (key: string) => Promise<IpcResult<boolean>>;
-    removeApiKey: () => Promise<IpcResult<boolean>>;
+    setConfig: (input: {
+      provider: AiProvider;
+      model?: string;
+      baseUrl?: string;
+    }) => Promise<IpcResult<AiStatus>>;
+    setApiKey: (provider: AiProvider, key: string) => Promise<IpcResult<boolean>>;
+    removeApiKey: (provider: AiProvider) => Promise<IpcResult<boolean>>;
     analyze: (profileId: string, kind: string, input?: string) => Promise<IpcResult<AiAnalysisResult>>;
   };
   on: (channel: string, listener: (payload: unknown) => void) => () => void;

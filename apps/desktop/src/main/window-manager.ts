@@ -6,7 +6,8 @@
  * Policy, and locks the shell to its own origin.
  */
 
-import { BrowserWindow, session } from "electron";
+import { app, BrowserWindow, session } from "electron";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { APP_NAME } from "../shared/constants";
 import { nativeWindowPreferences } from "./security";
@@ -43,6 +44,9 @@ export function createMainWindow(): BrowserWindow {
   applyShellCsp();
 
   const preloadPath = join(__dirname, "preload.js");
+  // Bundled app icon (assets/icon.png ships inside the app; see electron-builder
+  // `files`). On macOS the dock uses the packaged bundle icon instead.
+  const iconPath = join(app.getAppPath(), "assets", "icon.png");
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -51,6 +55,7 @@ export function createMainWindow(): BrowserWindow {
     title: APP_NAME,
     backgroundColor: "#0f1115",
     show: false,
+    ...(existsSync(iconPath) ? { icon: iconPath } : {}),
     webPreferences: nativeWindowPreferences(preloadPath),
   });
 

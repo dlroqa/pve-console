@@ -3,7 +3,7 @@ import type { AppSettings } from "../../shared/types";
 import type { ServerProfile } from "../../profiles/profile-types";
 import type { CertificatePin } from "../../certificates/certificate-types";
 import type { ApiTokenStatus } from "../../proxmox/proxmox-types";
-import type { AiStatus } from "../../ai/ai-types";
+import type { AiStatus, AiProvider } from "../../ai/ai-types";
 import { unwrap, errorMessage } from "../ipc";
 
 interface Props {
@@ -16,6 +16,9 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
   const [pins, setPins] = useState<CertificatePin[]>([]);
   const [tokenStatuses, setTokenStatuses] = useState<Record<string, ApiTokenStatus>>({});
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [aiProvider, setAiProvider] = useState<AiProvider>("anthropic");
+  const [aiModel, setAiModel] = useState("");
+  const [aiBaseUrl, setAiBaseUrl] = useState("");
   const [aiKey, setAiKey] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,18 +51,58 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
     }
   };
 
+  const applyAiStatus = (s: AiStatus) => {
+    setAiStatus(s);
+    setAiProvider(s.provider);
+    setAiModel(s.model);
+    setAiBaseUrl(s.baseUrl ?? "");
+  };
+
   useEffect(() => {
     unwrap(window.pve.ai.getStatus())
-      .then(setAiStatus)
+      .then(applyAiStatus)
       .catch((e) => setError(errorMessage(e)));
   }, []);
 
+  const changeProvider = async (provider: AiProvider) => {
+    setAiProvider(provider);
+    try {
+      // Switch active provider; the stored per-provider model/base URL come back.
+      applyAiStatus(await unwrap(window.pve.ai.setConfig({ provider })));
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
+  const saveAiConfig = async () => {
+    try {
+      const s = await unwrap(
+        window.pve.ai.setConfig({
+          provider: aiProvider,
+          model: aiModel,
+          baseUrl: aiProvider === "openai" ? aiBaseUrl : undefined,
+        }),
+      );
+      applyAiStatus(s);
+      setNotice("AI settings saved.");
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
   const saveAiKey = async () => {
     try {
-      await unwrap(window.pve.ai.setApiKey(aiKey.trim()));
+      await unwrap(
+        window.pve.ai.setConfig({
+          provider: aiProvider,
+          model: aiModel,
+          baseUrl: aiProvider === "openai" ? aiBaseUrl : undefined,
+        }),
+      );
+      await unwrap(window.pve.ai.setApiKey(aiProvider, aiKey.trim()));
       setAiKey("");
       setNotice("AI assistant enabled. Its analysis is advisory only.");
-      setAiStatus(await unwrap(window.pve.ai.getStatus()));
+      applyAiStatus(await unwrap(window.pve.ai.getStatus()));
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -67,9 +110,9 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
 
   const removeAiKey = async () => {
     try {
-      await unwrap(window.pve.ai.removeApiKey());
-      setNotice("AI assistant disabled.");
-      setAiStatus(await unwrap(window.pve.ai.getStatus()));
+      await unwrap(window.pve.ai.removeApiKey(aiProvider));
+      setNotice("AI assistant key removed for this provider.");
+      applyAiStatus(await unwrap(window.pve.ai.getStatus()));
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -252,42 +295,72 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
 
       <h2 style={{ fontSize: 16, marginTop: 30 }}>AI Assistant (optional)</h2>
       <div className="banner info">
-        Advisory only. When enabled, the assistant sends read-only cluster summaries to Anthropic
-        for analysis and never performs actions. The API key is stored encrypted.
+        Advisory only. When enabled, the assistant sends read-only cluster summaries to the selected
+        provider for analysis and never performs actions. The API key is stored encrypted.
       </div>
-      {aiStatus?.configured ? (
-        <div className="card" style={{ maxWidth: 520 }}>
-          <div className="kv-table">
-            <span className="k">Status</span>
-            <span className="v">Enabled</span>
-            <span className="k">Model</span>
-            <span className="v">{aiStatus.model}</span>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <button className="danger" onClick={removeAiKey}>
-              Disable &amp; remove key
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="card" style={{ maxWidth: 520 }}>
+      <div className="card" style={{ maxWidth: 520 }}>
+        <div className="inline-row">
           <div className="field">
-            <label>Anthropic API key</label>
+            <label>Provider</label>
+            <select value={aiProvider} onChange={(e) => changeProvider(e.target.value as AiProvider)}>
+              <option value="anthropic">Anthropic (Claude)</option>
+              <option value="openai">OpenAI-compatible</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Model</label>
             <input
-              type="password"
-              value={aiKey}
-              onChange={(e) => setAiKey(e.target.value)}
-              placeholder="sk-ant-…  (stored encrypted via the OS credential store)"
-              autoComplete="off"
+              value={aiModel}
+              onChange={(e) => setAiModel(e.target.value)}
+              placeholder={aiProvider === "openai" ? "gpt-4o" : "claude-opus-5"}
             />
           </div>
-          <div className="form-actions" style={{ marginTop: 12 }}>
-            <button className="primary" onClick={saveAiKey} disabled={aiKey.trim().length < 8}>
-              Enable Assistant
-            </button>
-          </div>
         </div>
-      )}
+
+        {aiProvider === "openai" && (
+          <div className="field" style={{ marginTop: 12 }}>
+            <label>Base URL</label>
+            <input
+              value={aiBaseUrl}
+              onChange={(e) => setAiBaseUrl(e.target.value)}
+              placeholder="https://api.openai.com/v1"
+            />
+            <div className="hint">
+              Any OpenAI-compatible /chat/completions endpoint (OpenAI, gateways, local models).
+            </div>
+          </div>
+        )}
+
+        <div className="field" style={{ marginTop: 12 }}>
+          <label>{aiStatus?.configured ? "Replace API key" : "API key"}</label>
+          <input
+            type="password"
+            value={aiKey}
+            onChange={(e) => setAiKey(e.target.value)}
+            placeholder={
+              aiProvider === "openai" ? "sk-…  (stored encrypted)" : "sk-ant-…  (stored encrypted)"
+            }
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="form-actions" style={{ marginTop: 12 }}>
+          <button onClick={saveAiConfig}>Save settings</button>
+          <button className="primary" onClick={saveAiKey} disabled={aiKey.trim().length < 8}>
+            {aiStatus?.configured ? "Update key" : "Enable Assistant"}
+          </button>
+          {aiStatus?.configured && (
+            <button className="danger" onClick={removeAiKey}>
+              Remove key
+            </button>
+          )}
+        </div>
+        <div style={{ color: "var(--text-faint)", fontSize: 12, marginTop: 8 }}>
+          {aiStatus?.configured
+            ? `Enabled — ${aiProvider} · ${aiStatus.model}`
+            : "Not enabled for this provider."}
+        </div>
+      </div>
 
       <h2 style={{ fontSize: 16, marginTop: 30 }}>Application updates</h2>
       <div className="banner info">

@@ -63,7 +63,7 @@ export function AiAssistant({ profileId, onOpenSettings }: Props): JSX.Element {
     <div className="card" style={{ maxWidth: 680, marginTop: 12 }}>
       <div className="banner info" style={{ marginTop: 0 }}>
         Advisory only. The assistant analyzes read-only cluster data and suggests actions — it never
-        performs them. Enabling it sends the snapshot to Anthropic ({status?.model}).
+        performs them. Requests go to {status?.provider} ({status?.model}).
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
