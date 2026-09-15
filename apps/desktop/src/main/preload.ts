@@ -69,6 +69,16 @@ const api = {
     getSummary: (id: string) => ipcRenderer.invoke("proxmox:getSummary", id),
     getNodes: (id: string) => ipcRenderer.invoke("proxmox:getNodes", id),
     getGuests: (id: string) => ipcRenderer.invoke("proxmox:getGuests", id),
+    startGuest: (id: string, node: string, type: string, vmid: number) =>
+      ipcRenderer.invoke("proxmox:startGuest", id, node, type, vmid),
+    shutdownGuest: (id: string, node: string, type: string, vmid: number) =>
+      ipcRenderer.invoke("proxmox:shutdownGuest", id, node, type, vmid),
+    rebootGuest: (id: string, node: string, type: string, vmid: number) =>
+      ipcRenderer.invoke("proxmox:rebootGuest", id, node, type, vmid),
+    stopGuest: (id: string, node: string, type: string, vmid: number) =>
+      ipcRenderer.invoke("proxmox:stopGuest", id, node, type, vmid),
+    createSnapshot: (id: string, node: string, type: string, vmid: number, snapname: string) =>
+      ipcRenderer.invoke("proxmox:createSnapshot", id, node, type, vmid, snapname),
   },
   /** Subscribe to an allowlisted main->renderer event. Returns an unsubscribe fn. */
   on: (channel: string, listener: (payload: unknown) => void): Unsubscribe => {

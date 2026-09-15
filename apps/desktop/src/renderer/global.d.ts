@@ -67,6 +67,17 @@ export interface PveBridge {
     getSummary: (id: string) => Promise<IpcResult<DashboardData>>;
     getNodes: (id: string) => Promise<IpcResult<NodeSummary[]>>;
     getGuests: (id: string) => Promise<IpcResult<GuestSummary[]>>;
+    startGuest: (id: string, node: string, type: string, vmid: number) => Promise<IpcResult<string>>;
+    shutdownGuest: (id: string, node: string, type: string, vmid: number) => Promise<IpcResult<string>>;
+    rebootGuest: (id: string, node: string, type: string, vmid: number) => Promise<IpcResult<string>>;
+    stopGuest: (id: string, node: string, type: string, vmid: number) => Promise<IpcResult<string>>;
+    createSnapshot: (
+      id: string,
+      node: string,
+      type: string,
+      vmid: number,
+      snapname: string,
+    ) => Promise<IpcResult<string>>;
   };
   on: (channel: string, listener: (payload: unknown) => void) => () => void;
 }

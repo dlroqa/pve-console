@@ -46,12 +46,40 @@ export class ProxmoxClient {
 
   /** GET a JSON API path (read-only). Returns the `data` payload. */
   async get<T>(path: string, timeoutMs = 10_000): Promise<T> {
+    return this.request<T>("GET", path, undefined, timeoutMs);
+  }
+
+  /**
+   * POST an action to the API. State-changing calls (Phase 11) go through here.
+   * API-token auth does not require a CSRF token for writes. The body is sent
+   * form-urlencoded, matching the Proxmox REST API.
+   */
+  async post<T>(
+    path: string,
+    body?: Record<string, string | number>,
+    timeoutMs = 15_000,
+  ): Promise<T> {
+    return this.request<T>("POST", path, body, timeoutMs);
+  }
+
+  private request<T>(
+    method: "GET" | "POST",
+    path: string,
+    body: Record<string, string | number> | undefined,
+    timeoutMs: number,
+  ): Promise<T> {
     const url = `${this.baseUrl}/api2/json${path}`;
+    const encodedBody =
+      body && method === "POST"
+        ? new URLSearchParams(
+            Object.fromEntries(Object.entries(body).map(([k, v]) => [k, String(v)])),
+          ).toString()
+        : undefined;
     return new Promise<T>((resolve, reject) => {
       const req = httpsRequest(
         url,
         {
-          method: "GET",
+          method,
           host: socketHost(this.config.host),
           port: this.config.port,
           timeout: timeoutMs,
@@ -61,6 +89,12 @@ export class ProxmoxClient {
           headers: {
             Authorization: `PVEAPIToken=${this.config.tokenName}=${this.config.tokenSecret}`,
             Accept: "application/json",
+            ...(encodedBody
+              ? {
+                  "Content-Type": "application/x-www-form-urlencoded",
+                  "Content-Length": Buffer.byteLength(encodedBody).toString(),
+                }
+              : {}),
           },
         },
         (res) => {
@@ -126,6 +160,7 @@ export class ProxmoxClient {
           }),
         ),
       );
+      if (encodedBody) req.write(encodedBody);
       req.end();
     });
   }
