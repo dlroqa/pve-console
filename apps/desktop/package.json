@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "PVE Console desktop application (Electron + React + TypeScript + Vite).",
+  "homepage": "https://github.com/dlroqa/pve-console",
   "author": {
     "name": "PVE Console",
     "email": "pve-console@users.noreply.github.com"
