@@ -1,0 +1,18 @@
+{
+  "name": "pve-console",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PVE Console — a secure dedicated desktop application for Proxmox VE.",
+  "license": "MIT",
+  "workspaces": [
+    "apps/desktop"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/desktop",
+    "build": "npm run build --workspace apps/desktop",
+    "test": "npm run test --workspace apps/desktop",
+    "lint": "npm run lint --workspace apps/desktop",
+    "typecheck": "npm run typecheck --workspace apps/desktop",
+    "package": "npm run package --workspace apps/desktop"
+  }
+}

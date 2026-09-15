@@ -1,0 +1,57 @@
+/**
+ * IPC channel allowlist (spec §6.2).
+ *
+ * These are the ONLY channels the preload bridge and main process accept.
+ * There is deliberately no generic execute/run/invoke(arbitrary) channel.
+ */
+
+/** Request/response channels (ipcRenderer.invoke -> ipcMain.handle). */
+export const INVOKE_CHANNELS = [
+  "profiles:list",
+  "profiles:get",
+  "profiles:create",
+  "profiles:update",
+  "profiles:delete",
+
+  "server:connect",
+  "server:disconnect",
+  "server:reload",
+  "server:back",
+  "server:forward",
+  "server:reconnect",
+  "server:showNative",
+  "server:setContentBounds",
+  "server:clearSession",
+
+  "diagnostics:run",
+
+  "certificate:list",
+  "certificate:respond",
+
+  "settings:get",
+  "settings:set",
+
+  "system:chooseDownloadDirectory",
+  "system:appInfo",
+] as const;
+
+export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];
+
+/** One-way main -> renderer event channels the renderer may subscribe to. */
+export const EVENT_CHANNELS = [
+  "certificate:prompt",
+  "server:navigation",
+  "server:status",
+  "server:crashed",
+  "server:load-error",
+] as const;
+
+export type EventChannel = (typeof EVENT_CHANNELS)[number];
+
+export function isInvokeChannel(x: string): x is InvokeChannel {
+  return (INVOKE_CHANNELS as readonly string[]).includes(x);
+}
+
+export function isEventChannel(x: string): x is EventChannel {
+  return (EVENT_CHANNELS as readonly string[]).includes(x);
+}

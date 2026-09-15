@@ -1,0 +1,51 @@
+name: Package & Release
+
+# Cross-platform packaging (Windows / macOS / Linux) via electron-builder,
+# executed on GitHub-hosted runners.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  package:
+    name: Package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Package with electron-builder
+        run: npm run package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pve-console-${{ matrix.os }}
+          path: |
+            apps/desktop/release/**/*.exe
+            apps/desktop/release/**/*.dmg
+            apps/desktop/release/**/*.AppImage
+            apps/desktop/release/**/*.deb
+          if-no-files-found: ignore
+          retention-days: 14

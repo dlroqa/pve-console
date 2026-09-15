@@ -1,0 +1,178 @@
+import { useEffect, useState } from "react";
+import type { AppSettings } from "../../shared/types";
+import type { ServerProfile } from "../../profiles/profile-types";
+import type { CertificatePin } from "../../certificates/certificate-types";
+import { unwrap, errorMessage } from "../ipc";
+
+interface Props {
+  settings: AppSettings;
+  profiles: ServerProfile[];
+  onSettingsChange: (settings: AppSettings) => void;
+}
+
+export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.Element {
+  const [pins, setPins] = useState<CertificatePin[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    unwrap(window.pve.certificate.list())
+      .then(setPins)
+      .catch((e) => setError(errorMessage(e)));
+  }, []);
+
+  const save = async (next: AppSettings) => {
+    try {
+      const saved = await unwrap(window.pve.settings.set(next));
+      onSettingsChange(saved);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
+  const chooseDir = async () => {
+    const dir = await unwrap(window.pve.system.chooseDownloadDirectory());
+    if (dir) await save({ ...settings, defaultDownloadDirectory: dir });
+  };
+
+  const clearSession = async (id: string, name: string) => {
+    try {
+      await unwrap(window.pve.server.clearSession(id));
+      setNotice(`Session cleared for “${name}”. You will need to sign in again.`);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
+  return (
+    <div className="page">
+      <h1>Settings</h1>
+      <p className="subtitle">Appearance, behavior, certificates and sessions.</p>
+
+      {error && <div className="banner error">{error}</div>}
+      {notice && <div className="banner info">{notice}</div>}
+
+      <div className="form-grid">
+        <div className="field">
+          <label>Appearance</label>
+          <select
+            value={settings.theme}
+            onChange={(e) => save({ ...settings, theme: e.target.value as AppSettings["theme"] })}
+          >
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+
+        <div className="field">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={settings.openExternalLinksInSystemBrowser}
+              onChange={(e) =>
+                save({ ...settings, openExternalLinksInSystemBrowser: e.target.checked })
+              }
+            />
+            Open external links in the system browser
+          </label>
+        </div>
+
+        <div className="field">
+          <label>Download directory</label>
+          <div style={{ display: "flex", gap: 10 }}>
+            <input value={settings.defaultDownloadDirectory ?? ""} readOnly placeholder="System default" />
+            <button onClick={chooseDir}>Choose…</button>
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Logging level</label>
+          <select
+            value={settings.logLevel}
+            onChange={(e) => save({ ...settings, logLevel: e.target.value as AppSettings["logLevel"] })}
+          >
+            <option value="error">error</option>
+            <option value="warn">warn</option>
+            <option value="info">info</option>
+            <option value="debug">debug</option>
+          </select>
+        </div>
+
+        <div className="field">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={settings.enableDeveloperDiagnostics}
+              onChange={(e) => save({ ...settings, enableDeveloperDiagnostics: e.target.checked })}
+            />
+            Enable developer diagnostics
+          </label>
+        </div>
+
+        <div className="field">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={settings.rememberServerSessions}
+              onChange={(e) => save({ ...settings, rememberServerSessions: e.target.checked })}
+            />
+            Remember server sessions between launches
+          </label>
+        </div>
+      </div>
+
+      <h2 style={{ fontSize: 16, marginTop: 30 }}>Certificate management</h2>
+      {pins.length === 0 ? (
+        <div className="empty" style={{ textAlign: "left", padding: "10px 0" }}>
+          No pinned certificates.
+        </div>
+      ) : (
+        <div className="diag-list">
+          {pins.map((pin) => (
+            <div className="diag-row" key={`${pin.host}:${pin.port}`}>
+              <span className="label">
+                {pin.host}:{pin.port}
+              </span>
+              <span className="msg">
+                {pin.fingerprintSha256}
+                <div style={{ color: "var(--text-faint)", fontSize: 12 }}>
+                  pinned {new Date(pin.approvedAt).toLocaleString()}
+                </div>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: 16, marginTop: 30 }}>Server sessions</h2>
+      {profiles.length === 0 ? (
+        <div className="empty" style={{ textAlign: "left", padding: "10px 0" }}>
+          No servers configured.
+        </div>
+      ) : (
+        <div className="card-grid">
+          {profiles.map((p) => (
+            <div className="card" key={p.id}>
+              <div className="name" style={{ fontWeight: 600 }}>
+                {p.name}
+              </div>
+              <div className="addr">
+                {p.host}:{p.port}
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <button onClick={() => clearSession(p.id, p.name)}>Reset Session</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: 16, marginTop: 30 }}>Application updates</h2>
+      <div className="banner info">
+        Auto-update is prepared in the packaging pipeline and does not bypass package signing. It is
+        not enabled in this version.
+      </div>
+    </div>
+  );
+}

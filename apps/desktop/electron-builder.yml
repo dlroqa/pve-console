@@ -1,0 +1,36 @@
+appId: com.pveconsole.desktop
+productName: PVE Console
+copyright: Copyright © 2026 PVE Console
+
+directories:
+  output: release
+  buildResources: assets
+
+files:
+  - dist/**/*
+  - package.json
+
+# Do not sign in CI without credentials; signing/notarization is configured per environment.
+asar: true
+
+win:
+  target:
+    - nsis
+  artifactName: ${productName}-${version}-Setup.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.developer-tools
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+  maintainer: PVE Console
