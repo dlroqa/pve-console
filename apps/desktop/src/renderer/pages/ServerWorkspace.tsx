@@ -98,6 +98,7 @@ export function ServerWorkspace({
           await window.pve.server.reconnect(profile.id);
         })}
         onOpenProxmox={() => setMode("proxmox")}
+        onOpenExternal={controlAction(() => window.pve.server.openExternal(profile.id))}
         onNativePage={() => setMode("native")}
         onDiagnostics={onOpenDiagnostics}
       />
@@ -126,6 +127,9 @@ export function ServerWorkspace({
                   })}
                 >
                   Retry
+                </button>
+                <button onClick={controlAction(() => window.pve.server.openExternal(profile.id))}>
+                  Open in browser
                 </button>
                 <button onClick={onOpenDiagnostics}>Diagnostics</button>
               </div>

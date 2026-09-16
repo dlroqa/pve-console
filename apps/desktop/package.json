@@ -20,7 +20,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "package": "npm run build && electron-builder --config electron-builder.yml --publish never"
+    "package": "npm run build && npm run package:dist",
+    "package:dist": "electron-builder --config electron-builder.yml --publish never"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",

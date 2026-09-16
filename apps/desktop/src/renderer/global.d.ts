@@ -42,6 +42,7 @@ export interface PveBridge {
     forward: () => Promise<IpcResult<boolean>>;
     reconnect: (id: string) => Promise<IpcResult<boolean>>;
     showNative: () => Promise<IpcResult<boolean>>;
+    openExternal: (id: string) => Promise<IpcResult<boolean>>;
     setContentBounds: (bounds: ContentBounds) => Promise<IpcResult<boolean>>;
     clearSession: (id: string) => Promise<IpcResult<boolean>>;
   };

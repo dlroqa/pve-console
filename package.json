@@ -13,6 +13,7 @@
     "test": "npm run test --workspace apps/desktop",
     "lint": "npm run lint --workspace apps/desktop",
     "typecheck": "npm run typecheck --workspace apps/desktop",
-    "package": "npm run package --workspace apps/desktop"
+    "package": "npm run package --workspace apps/desktop",
+    "package:dist": "npm run package:dist --workspace apps/desktop"
   }
 }

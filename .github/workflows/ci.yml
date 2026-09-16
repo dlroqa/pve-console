@@ -1,8 +1,6 @@
 name: CI
 
-# Build / render / test for PVE Console runs on GitHub-hosted runners
-# (server build usage) rather than on developer machines.
-
+# Validate source once, then reuse the exact production bundle for Electron E2E.
 on:
   push:
     branches: [main]
@@ -16,8 +14,9 @@ concurrency:
 
 jobs:
   verify:
-    name: Typecheck · Lint · Test · Build
+    name: Lint · Test · Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,30 +30,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
-
       - name: Lint
         run: npm run lint
 
       - name: Unit & integration tests
         run: npm test
 
-      - name: Build (main + preload + renderer)
+      # The build script includes TypeScript checks for renderer and main.
+      - name: Typecheck & build production bundle
         run: npm run build
 
-      - name: Upload renderer build
-        if: always()
+      - name: Upload production bundle
         uses: actions/upload-artifact@v4
         with:
-          name: renderer-dist
+          name: desktop-dist
           path: apps/desktop/dist
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 7
 
   e2e:
-    name: End-to-end (Playwright)
+    name: End-to-end (Electron)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: verify
     steps:
       - name: Checkout
@@ -69,14 +66,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+      - name: Download verified production bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-dist
+          path: apps/desktop/dist
 
-      - name: Build
-        run: npm run build
+      # Electron supplies Chromium; only its Linux runtime libraries are needed.
+      - name: Install Electron runtime dependencies
+        run: npx playwright install-deps chromium
 
-      - name: Run Playwright e2e (headless via xvfb)
-        run: xvfb-run --auto-servernum npm run test:e2e --workspace apps/desktop
+      - name: Run Playwright Electron E2E
+        run: env -u ELECTRON_RUN_AS_NODE xvfb-run --auto-servernum npm run test:e2e --workspace apps/desktop
 
       - name: Upload Playwright report
         if: always()

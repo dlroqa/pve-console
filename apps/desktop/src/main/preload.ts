@@ -20,6 +20,7 @@ const EVENT_CHANNELS = [
   "server:status",
   "server:crashed",
   "server:load-error",
+  "server:loaded",
 ] as const;
 
 type Unsubscribe = () => void;
@@ -40,6 +41,7 @@ const api = {
     forward: () => ipcRenderer.invoke("server:forward"),
     reconnect: (id: string) => ipcRenderer.invoke("server:reconnect", id),
     showNative: () => ipcRenderer.invoke("server:showNative"),
+    openExternal: (id: string) => ipcRenderer.invoke("server:openExternal", id),
     setContentBounds: (bounds: { x: number; y: number; width: number; height: number }) =>
       ipcRenderer.invoke("server:setContentBounds", bounds),
     clearSession: (id: string) => ipcRenderer.invoke("server:clearSession", id),

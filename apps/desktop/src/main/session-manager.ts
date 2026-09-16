@@ -34,6 +34,7 @@ function pemToDer(pem: string): Buffer {
 
 export class SessionManager {
   private readonly sessions = new Map<string, Session>();
+  private onCertificateResult: ((profileId: string, accepted: boolean) => void) | null = null;
   /** De-duplicate concurrent certificate prompts per host:port. */
   private readonly inFlightPrompts = new Map<string, Promise<CertificateDecision>>();
 
@@ -42,6 +43,29 @@ export class SessionManager {
     private readonly prompt: CertificatePrompt,
     private readonly onStatus?: (profileId: string, warning: boolean) => void,
   ) {}
+
+  /**
+   * Called after Electron has received a certificate verdict. This lets the
+   * view manager restart a navigation that may have expired during user review.
+   */
+  setCertificateResultHandler(
+    handler: (profileId: string, accepted: boolean) => void,
+  ): void {
+    this.onCertificateResult = handler;
+  }
+
+  private notifyCertificateResult(profileId: string, accepted: boolean): void {
+    try {
+      this.onCertificateResult?.(profileId, accepted);
+    } catch (err) {
+      logger.error({
+        module: "session",
+        event: "cert-result-handler-error",
+        serverProfileId: profileId,
+        detail: { message: (err as Error).message },
+      });
+    }
+  }
 
   /** Return (creating if needed) the isolated session for a profile. */
   getSession(profile: ServerProfile): Session {
@@ -68,9 +92,12 @@ export class SessionManager {
   private installCertificateProc(ses: Session, profile: ServerProfile): void {
     ses.setCertificateVerifyProc((request, callback) => {
       // callback(0) => trust, callback(-2) => reject, callback(-3) => default.
-      void this.evaluateCertificate(profile, request)
-        .then((verdict) => callback(verdict))
-        .catch((err) => {
+      void this.evaluateCertificate(profile, request).then(
+        (verdict) => {
+          callback(verdict);
+          this.notifyCertificateResult(profile.id, verdict === 0);
+        },
+        (err) => {
           logger.error({
             module: "session",
             event: "cert-proc-error",
@@ -78,7 +105,9 @@ export class SessionManager {
             detail: { message: (err as Error).message },
           });
           callback(-2);
-        });
+          this.notifyCertificateResult(profile.id, false);
+        },
+      );
     });
   }
 

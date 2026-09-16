@@ -73,6 +73,12 @@ async function bootstrap(): Promise<void> {
   });
 
   const webContents = new WebContentsManager(sessions, getSettings, emit);
+  promptBridge.setPromptHandler((profileId) =>
+    webContents.suspendForCertificatePrompt(profileId),
+  );
+  sessions.setCertificateResultHandler((profileId, accepted) =>
+    webContents.resumeAfterCertificatePrompt(profileId, accepted),
+  );
 
   const services: AppServices = {
     profiles,

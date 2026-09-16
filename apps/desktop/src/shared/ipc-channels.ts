@@ -20,6 +20,7 @@ export const INVOKE_CHANNELS = [
   "server:forward",
   "server:reconnect",
   "server:showNative",
+  "server:openExternal",
   "server:setContentBounds",
   "server:clearSession",
 
@@ -63,6 +64,7 @@ export const EVENT_CHANNELS = [
   "server:status",
   "server:crashed",
   "server:load-error",
+  "server:loaded",
 ] as const;
 
 export type EventChannel = (typeof EVENT_CHANNELS)[number];

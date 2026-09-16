@@ -64,8 +64,13 @@ export function App(): JSX.Element {
     const offNav = window.pve.on("server:navigation", (payload) => {
       const { profileId, state } = payload as { profileId: string; state: NavigationState };
       setNavByServer((prev) => ({ ...prev, [profileId]: state }));
-      if (state.url && !state.isLoading) setStatus(profileId, "connected");
-      else setStatus(profileId, "connecting");
+    });
+    const offLoaded = window.pve.on("server:loaded", (payload) => {
+      const { profileId } = payload as { profileId: string };
+      setStatus(profileId, "connected");
+      // A successful (re)load clears any prior failure/crash overlay.
+      setLoadErrorByServer((prev) => ({ ...prev, [profileId]: "" }));
+      setCrashByServer((prev) => ({ ...prev, [profileId]: "" }));
     });
     const offStatus = window.pve.on("server:status", (payload) => {
       const { profileId, status } = payload as { profileId: string; status: ServerStatus };
@@ -86,6 +91,7 @@ export function App(): JSX.Element {
     });
     return () => {
       offNav();
+      offLoaded();
       offStatus();
       offCrash();
       offLoad();

@@ -1,10 +1,7 @@
 name: Package & Release
 
-# Cross-platform packaging (Windows / macOS / Linux) via electron-builder on
-# GitHub-hosted runners. Pushing a v* tag builds installers on all three OSes
-# and publishes them as a GitHub Release. A manual run (workflow_dispatch)
-# performs the same packaging as an integrity check but does not publish.
-
+# Cross-platform packaging via electron-builder. Source validation and rendering
+# happen once; every platform packages the same verified dist artifact.
 on:
   push:
     tags:
@@ -12,9 +9,51 @@ on:
   workflow_dispatch:
 
 jobs:
+  preflight:
+    name: Test · Render · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit & integration tests
+        run: npm test
+
+      - name: Typecheck & build production bundle
+        run: npm run build
+
+      - name: Install Electron runtime dependencies
+        run: npx playwright install-deps chromium
+
+      - name: Electron E2E
+        run: env -u ELECTRON_RUN_AS_NODE xvfb-run --auto-servernum npm run test:e2e --workspace apps/desktop
+
+      - name: Upload verified production bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: apps/desktop/dist
+          if-no-files-found: error
+          retention-days: 7
+
   package:
     name: Package (${{ matrix.os }})
+    needs: preflight
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -32,9 +71,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Package with electron-builder
-        # `npm run package` runs typecheck + build + electron-builder --publish never.
-        run: npm run package
+      - name: Download verified production bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: apps/desktop/dist
+
+      - name: Package prebuilt bundle with electron-builder
+        run: npm run package:dist
         env:
           # Do not attempt macOS code signing without credentials.
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -43,8 +87,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pve-console-${{ matrix.os }}
-          # Top-level installers only — never the unpacked app dirs
-          # (win-unpacked/*.exe, elevate.exe, *.app contents, etc.).
+          # Top-level installers only — never unpacked app directories.
           path: |
             apps/desktop/release/*.exe
             apps/desktop/release/*.dmg
@@ -82,7 +125,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist-release/* \
-            --repo "${GITHUB_REPOSITORY}" \
-            --title "PVE Console ${GITHUB_REF_NAME}" \
+          gh release create "$GITHUB_REF_NAME" dist-release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "PVE Console $GITHUB_REF_NAME" \
             --generate-notes

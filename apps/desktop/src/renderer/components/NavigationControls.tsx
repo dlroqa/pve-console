@@ -7,6 +7,7 @@ interface Props {
   onReload: () => void;
   onReconnect: () => void;
   onOpenProxmox: () => void;
+  onOpenExternal: () => void;
   onNativePage: () => void;
   onDiagnostics: () => void;
 }
@@ -19,6 +20,7 @@ export function NavigationControls({
   onReload,
   onReconnect,
   onOpenProxmox,
+  onOpenExternal,
   onNativePage,
   onDiagnostics,
 }: Props): JSX.Element {
@@ -39,6 +41,9 @@ export function NavigationControls({
       </button>
       <button className="ghost" onClick={onOpenProxmox}>
         Open Proxmox
+      </button>
+      <button className="ghost" onClick={onOpenExternal} title="Open in your default web browser">
+        Open in browser
       </button>
       <button className="ghost" onClick={onNativePage}>
         Dashboard

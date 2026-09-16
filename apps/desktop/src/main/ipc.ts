@@ -35,16 +35,27 @@ import type { AiAnalysisKind, AiProvider } from "../ai/ai-types";
  */
 export class CertificatePromptBridge {
   private win: BrowserWindow | null = null;
-  private readonly pending = new Map<string, (d: CertificateDecision) => void>();
+  private readonly pending = new Map<string, (decision: CertificateDecision) => void>();
+  private onPrompt: ((profileId: string) => void) | null = null;
 
   setWindow(win: BrowserWindow): void {
     this.win = win;
+  }
+
+  /**
+   * Coordinate certificate prompts with the native WebContentsView layer.
+   * A WebContentsView is always above the renderer DOM, so it must be detached
+   * before the React certificate dialog can be seen or clicked.
+   */
+  setPromptHandler(onPrompt: (profileId: string) => void): void {
+    this.onPrompt = onPrompt;
   }
 
   readonly prompt: CertificatePrompt = ({ profile, evaluation }) => {
     return new Promise<CertificateDecision>((resolve) => {
       const requestId = randomUUID();
       this.pending.set(requestId, resolve);
+      this.onPrompt?.(profile.id);
       const payload = buildPromptPayload(requestId, profile, evaluation);
       if (this.win && !this.win.isDestroyed()) {
         this.win.webContents.send("certificate:prompt", payload);
@@ -57,10 +68,10 @@ export class CertificatePromptBridge {
   };
 
   resolve(requestId: string, decision: CertificateDecision): void {
-    const r = this.pending.get(requestId);
-    if (r) {
+    const resolve = this.pending.get(requestId);
+    if (resolve) {
       this.pending.delete(requestId);
-      r(decision);
+      resolve(decision);
     }
   }
 }
@@ -186,6 +197,11 @@ export function registerIpcHandlers(services: AppServices): void {
   });
   handle("server:showNative", services, () => {
     services.webContents.hideActive();
+    return true;
+  });
+  handle("server:openExternal", services, async (id) => {
+    const profile = await requireProfile(services, id);
+    services.webContents.openExternal(profile);
     return true;
   });
   handle("server:setContentBounds", services, (bounds) => {
