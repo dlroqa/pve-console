@@ -28,6 +28,15 @@ import type { GuestType } from "../proxmox/guest-actions";
 import { AiError } from "../ai/ai-service";
 import type { AiService } from "../ai/ai-service";
 import type { AiAnalysisKind, AiProvider } from "../ai/ai-types";
+import type { SshProfileManager } from "../ssh/ssh-profile-manager";
+import type { SshService } from "../ssh/ssh-service";
+import type {
+  CreateSshProfileInput,
+  SshConnectInput,
+  SshHostKeyDecision,
+  SshHostKeyPrompt,
+} from "../ssh/ssh-types";
+import { SshError } from "../ssh/ssh-error";
 
 /**
  * Bridges an async certificate decision from the renderer back to the
@@ -76,6 +85,39 @@ export class CertificatePromptBridge {
   }
 }
 
+/** Bridges asynchronous SSH host-key verification through the native UI. */
+export class SshHostKeyPromptBridge {
+  private win: BrowserWindow | null = null;
+  private readonly pending = new Map<string, (decision: SshHostKeyDecision) => void>();
+
+  setWindow(win: BrowserWindow): void {
+    this.win = win;
+  }
+
+  readonly prompt = (
+    payload: Omit<SshHostKeyPrompt, "requestId">,
+  ): Promise<SshHostKeyDecision> =>
+    new Promise((resolve) => {
+      const requestId = randomUUID();
+      this.pending.set(requestId, resolve);
+      if (this.win && !this.win.isDestroyed()) {
+        this.win.webContents.send("sshHost:prompt", { ...payload, requestId });
+      } else {
+        this.pending.delete(requestId);
+        resolve("cancel");
+      }
+    });
+
+  resolve(requestId: string, decision: SshHostKeyDecision): void {
+    const resolve = this.pending.get(requestId);
+    if (!resolve) return;
+    this.pending.delete(requestId);
+    resolve(
+      decision === "trust-once" || decision === "trust-and-save" ? decision : "cancel",
+    );
+  }
+}
+
 function buildPromptPayload(
   requestId: string,
   profile: ServerProfile,
@@ -102,6 +144,9 @@ export interface AppServices {
   promptBridge: CertificatePromptBridge;
   proxmox: ProxmoxService;
   ai: AiService;
+  sshProfiles: SshProfileManager;
+  ssh: SshService;
+  sshHostPromptBridge: SshHostKeyPromptBridge;
   getSettings: () => AppSettings;
   setSettings: (s: AppSettings) => Promise<AppSettings>;
 }
@@ -114,6 +159,9 @@ function toAppError(err: unknown, devDiagnostics: boolean): AppError {
     return err.appError;
   }
   if (err instanceof AiError) {
+    return err.appError;
+  }
+  if (err instanceof SshError) {
     return err.appError;
   }
   const message = err instanceof Error ? err.message : "An unexpected error occurred.";
@@ -285,6 +333,36 @@ export function registerIpcHandlers(services: AppServices): void {
   handle("ai:analyze", services, (profileId, kind, input) =>
     services.ai.analyze(String(profileId), kind as AiAnalysisKind, input == null ? undefined : String(input)),
   );
+
+  // ---- Remote SSH terminals ----
+  handle("terminalProfiles:list", services, () => services.sshProfiles.list());
+  handle("terminalProfiles:create", services, (input) =>
+    services.sshProfiles.create(input as CreateSshProfileInput),
+  );
+  handle("terminalProfiles:delete", services, async (id) => {
+    services.ssh.disconnectProfile(String(id));
+    await services.sshProfiles.delete(String(id));
+    return true;
+  });
+  handle("terminal:connect", services, (input) =>
+    services.ssh.connect(input as SshConnectInput),
+  );
+  handle("terminal:write", services, (sessionId, data) => {
+    services.ssh.write(String(sessionId), String(data));
+    return true;
+  });
+  handle("terminal:resize", services, (sessionId, cols, rows) => {
+    services.ssh.resize(String(sessionId), Number(cols), Number(rows));
+    return true;
+  });
+  handle("terminal:disconnect", services, (sessionId) => {
+    services.ssh.disconnect(String(sessionId));
+    return true;
+  });
+  handle("sshHost:respond", services, (requestId, decision) => {
+    services.sshHostPromptBridge.resolve(String(requestId), decision as SshHostKeyDecision);
+    return true;
+  });
 
   // ---- System ----
   handle("system:chooseDownloadDirectory", services, async () => {

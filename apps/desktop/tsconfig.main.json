@@ -25,7 +25,8 @@
     "src/proxmox",
     "src/storage",
     "src/shared",
-    "src/ai"
+    "src/ai",
+    "src/ssh"
   ],
   "exclude": ["src/renderer"]
 }

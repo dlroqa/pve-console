@@ -21,6 +21,9 @@ const EVENT_CHANNELS = [
   "server:crashed",
   "server:load-error",
   "server:loaded",
+  "terminal:data",
+  "terminal:status",
+  "sshHost:prompt",
 ] as const;
 
 type Unsubscribe = () => void;
@@ -90,6 +93,21 @@ const api = {
     removeApiKey: (provider: string) => ipcRenderer.invoke("ai:removeApiKey", provider),
     analyze: (profileId: string, kind: string, input?: string) =>
       ipcRenderer.invoke("ai:analyze", profileId, kind, input),
+  },
+  terminalProfiles: {
+    list: () => ipcRenderer.invoke("terminalProfiles:list"),
+    create: (input: unknown) => ipcRenderer.invoke("terminalProfiles:create", input),
+    delete: (id: string) => ipcRenderer.invoke("terminalProfiles:delete", id),
+  },
+  terminal: {
+    connect: (input: unknown) => ipcRenderer.invoke("terminal:connect", input),
+    write: (sessionId: string, data: string) =>
+      ipcRenderer.invoke("terminal:write", sessionId, data),
+    resize: (sessionId: string, cols: number, rows: number) =>
+      ipcRenderer.invoke("terminal:resize", sessionId, cols, rows),
+    disconnect: (sessionId: string) => ipcRenderer.invoke("terminal:disconnect", sessionId),
+    respondToHostKey: (requestId: string, decision: string) =>
+      ipcRenderer.invoke("sshHost:respond", requestId, decision),
   },
   /** Subscribe to an allowlisted main->renderer event. Returns an unsubscribe fn. */
   on: (channel: string, listener: (payload: unknown) => void): Unsubscribe => {

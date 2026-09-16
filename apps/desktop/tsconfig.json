@@ -27,6 +27,7 @@
     "src/certificates",
     "src/proxmox",
     "src/storage",
+    "src/ssh",
     "tests"
   ],
   "exclude": ["src/main"]

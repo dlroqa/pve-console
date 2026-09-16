@@ -22,9 +22,12 @@ import {
   registerIpcHandlers,
   applyRuntimeSettings,
   CertificatePromptBridge,
+  SshHostKeyPromptBridge,
   type AppServices,
 } from "./ipc";
 import type { AppSettings } from "../shared/types";
+import { SshProfileManager } from "../ssh/ssh-profile-manager";
+import { SshService } from "../ssh/ssh-service";
 
 const SETTINGS_FILE = "settings";
 
@@ -61,6 +64,7 @@ async function bootstrap(): Promise<void> {
   const proxmox = new ProxmoxService(profiles, certificates, secrets, configStore);
   const ai = new AiService(secrets, configStore, proxmox);
   const promptBridge = new CertificatePromptBridge();
+  const sshHostPromptBridge = new SshHostKeyPromptBridge();
 
   const emit = (channel: string, payload: unknown): void => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -73,6 +77,8 @@ async function bootstrap(): Promise<void> {
   });
 
   const webContents = new WebContentsManager(sessions, getSettings, emit);
+  const sshProfiles = new SshProfileManager(configStore, secrets);
+  const ssh = new SshService(sshProfiles, configStore, emit, sshHostPromptBridge.prompt);
   promptBridge.setPromptHandler((profileId) =>
     webContents.suspendForCertificatePrompt(profileId),
   );
@@ -88,6 +94,9 @@ async function bootstrap(): Promise<void> {
     promptBridge,
     proxmox,
     ai,
+    sshProfiles,
+    ssh,
+    sshHostPromptBridge,
     getSettings,
     setSettings,
   };
@@ -96,9 +105,11 @@ async function bootstrap(): Promise<void> {
 
   mainWindow = createMainWindow();
   promptBridge.setWindow(mainWindow);
+  sshHostPromptBridge.setWindow(mainWindow);
   webContents.attachWindow(mainWindow);
 
   mainWindow.on("closed", () => {
+    ssh.disconnectAll();
     mainWindow = null;
   });
 

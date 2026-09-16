@@ -1,22 +1,29 @@
 import type { ServerProfile } from "../../profiles/profile-types";
 import type { Route, StatusMap } from "../types";
 import { ServerStatus } from "./ServerStatus";
+import type { SshConnectionStatus, SshProfile } from "../../ssh/ssh-types";
 
 interface Props {
   profiles: ServerProfile[];
   statuses: StatusMap;
+  terminalProfiles: SshProfile[];
+  terminalStatuses: Record<string, SshConnectionStatus>;
   route: Route;
   activeServerId: string | null;
   onSelectServer: (id: string) => void;
+  onSelectTerminal: (id: string) => void;
   onNavigate: (route: Route) => void;
 }
 
 export function Sidebar({
   profiles,
   statuses,
+  terminalProfiles,
+  terminalStatuses,
   route,
   activeServerId,
   onSelectServer,
+  onSelectTerminal,
   onNavigate,
 }: Props): JSX.Element {
   return (
@@ -45,6 +52,31 @@ export function Sidebar({
 
       <button className="nav-item" onClick={() => onNavigate({ name: "add" })}>
         + Add Server
+      </button>
+
+      <div className="section-label terminal-section-label">Terminal</div>
+      {terminalProfiles.length === 0 && (
+        <div className="sidebar-empty">No SSH connections yet.</div>
+      )}
+      {terminalProfiles.map((profile) => {
+        const active = route.name === "terminal" && route.profileId === profile.id;
+        const status = terminalStatuses[profile.id] ?? "disconnected";
+        return (
+          <button
+            key={profile.id}
+            className={`nav-item ${active ? "active" : ""}`}
+            onClick={() => onSelectTerminal(profile.id)}
+          >
+            <span className={`dot terminal-dot ${status}`} />
+            <span className="terminal-nav-copy">
+              <span>{profile.name}</span>
+              <small>{profile.username}@{profile.host}</small>
+            </span>
+          </button>
+        );
+      })}
+      <button className="nav-item" onClick={() => onNavigate({ name: "terminal-add" })}>
+        + Add Terminal
       </button>
 
       <div className="footer">

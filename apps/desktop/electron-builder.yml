@@ -14,9 +14,10 @@ files:
 # Do not sign in CI without credentials; signing/notarization is configured per environment.
 asar: true
 
-# This app has no native (compiled) dependencies, so skip the native rebuild /
-# production-dependency install step. This also avoids a fragile app-builder
-# invocation in the npm-workspace layout on CI runners.
+# ssh2 has an optional CPU-features accelerator but uses its supported
+# JavaScript fallback when that addon is unavailable. No required production
+# dependency needs an Electron ABI rebuild, so keep packaging reproducible in
+# the npm-workspace layout by skipping native rebuilds.
 npmRebuild: false
 nodeGypRebuild: false
 
@@ -46,6 +47,7 @@ mac:
   notarize: false
 
 linux:
+  syncDesktopName: true
   target:
     - AppImage
     - deb

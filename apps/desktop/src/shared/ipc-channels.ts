@@ -53,6 +53,15 @@ export const INVOKE_CHANNELS = [
   "ai:setApiKey",
   "ai:removeApiKey",
   "ai:analyze",
+
+  "terminalProfiles:list",
+  "terminalProfiles:create",
+  "terminalProfiles:delete",
+  "terminal:connect",
+  "terminal:write",
+  "terminal:resize",
+  "terminal:disconnect",
+  "sshHost:respond",
 ] as const;
 
 export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];
@@ -65,6 +74,9 @@ export const EVENT_CHANNELS = [
   "server:crashed",
   "server:load-error",
   "server:loaded",
+  "terminal:data",
+  "terminal:status",
+  "sshHost:prompt",
 ] as const;
 
 export type EventChannel = (typeof EVENT_CHANNELS)[number];

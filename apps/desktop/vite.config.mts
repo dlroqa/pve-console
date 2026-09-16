@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 // compiled separately with `tsc` (see tsconfig.main.json). Using a relative base
 // lets the packaged renderer load correctly from the file:// protocol.
 export default defineConfig({
-  root: resolve(__dirname, "src/renderer"),
+  root: resolve(import.meta.dirname, "src/renderer"),
   base: "./",
   plugins: [react()],
   server: {
@@ -14,7 +14,7 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    outDir: resolve(__dirname, "dist/renderer"),
+    outDir: resolve(import.meta.dirname, "dist/renderer"),
     emptyOutDir: true,
     sourcemap: true,
   },

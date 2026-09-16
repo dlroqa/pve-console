@@ -15,10 +15,11 @@ Electron Main Process            React Renderer (native shell)
   ├── WebContentsView Manager
   ├── Profile Manager
   ├── Diagnostics Engine
-  └── Proxmox API Client (V2 foundation)
-            │ HTTPS / WebSocket
-            ▼
-      Proxmox pveproxy :8006
+  ├── Proxmox API Client (V2 foundation)
+  └── SSH Service
+            │ HTTPS / WebSocket       │ SSH
+            ▼                         ▼
+      Proxmox pveproxy :8006       VM / host :22
 ```
 
 - **Main process** (`src/main`, plus the trusted modules under `src/profiles`,
@@ -29,6 +30,10 @@ Electron Main Process            React Renderer (native shell)
   allowlisted preload bridge.
 - **Embedded Proxmox content**: rendered with `WebContentsView` (never an
   `<iframe>` or `<webview>` tag), each in its own isolated persistent session.
+- **SSH terminal** (`src/ssh`): connection profiles, encrypted credential
+  lookup, host-key verification and SSH streams remain in the trusted main
+  process. The renderer receives terminal output and sends keystrokes through
+  narrowly allowlisted IPC channels.
 
 ## Layer boundaries
 

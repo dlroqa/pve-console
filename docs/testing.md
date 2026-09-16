@@ -21,6 +21,7 @@ the server build usage is reproducible and cross-platform. Packaging runs in
 - profile persistence (survives restart, no plaintext secrets)
 - certificate storage, pinning, mismatch blocking, trust-once runtime scope
 - secret store interface (encrypted, separate file) — Electron `safeStorage` mocked
+- SSH profile persistence (credentials encrypted and excluded from profile JSON)
 - diagnostics orchestration (host/TCP failures reported separately, downstream skipped)
 - session isolation partitions
 
@@ -39,6 +40,9 @@ These require a live Proxmox VE server and are verified by hand:
 - WebSocket stability during console use and window resize
 - file upload / download
 - cookies persist per-server only; logging out of one server does not affect another
+- SSH password and private-key authentication against a live VM
+- first-seen and changed SSH host-key confirmation
+- interactive SSH input, output, terminal resizing and disconnect behavior
 
 ## Commands (executed by CI)
 

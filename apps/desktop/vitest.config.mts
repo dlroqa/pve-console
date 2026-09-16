@@ -7,7 +7,7 @@ export default defineConfig({
     environment: "node",
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     exclude: ["tests/e2e/**", "node_modules/**"],
-    root: resolve(__dirname),
+    root: resolve(import.meta.dirname),
     coverage: {
       provider: "v8",
       reportsDirectory: "coverage",

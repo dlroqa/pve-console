@@ -1,20 +1,34 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { ServerProfile } from "../profiles/profile-types";
 import type { AppSettings, ServerStatus } from "../shared/types";
+import type {
+  SshConnectionStatus,
+  SshHostKeyDecision,
+  SshHostKeyPrompt,
+  SshProfile,
+} from "../ssh/ssh-types";
 import type { NavigationState } from "../main/webcontents-manager";
 import { DEFAULT_SETTINGS } from "../shared/settings";
 import { AppShell } from "./components/AppShell";
 import { Topbar } from "./components/Topbar";
 import { Sidebar } from "./components/Sidebar";
 import { CertificateDialog } from "./components/CertificateDialog";
+import { SshHostKeyDialog } from "./components/SshHostKeyDialog";
 import { Home } from "./pages/Home";
 import { AddServer } from "./pages/AddServer";
 import { EditServer } from "./pages/EditServer";
 import { Diagnostics } from "./pages/Diagnostics";
 import { Settings } from "./pages/Settings";
 import { ServerWorkspace } from "./pages/ServerWorkspace";
+import { AddTerminal } from "./pages/AddTerminal";
 import { unwrap } from "./ipc";
 import type { CertificatePromptPayload, Route, StatusMap } from "./types";
+
+const TerminalWorkspace = lazy(() =>
+  import("./pages/TerminalWorkspace").then((module) => ({
+    default: module.TerminalWorkspace,
+  })),
+);
 
 function applyTheme(theme: AppSettings["theme"]): void {
   const root = document.documentElement;
@@ -27,13 +41,16 @@ function applyTheme(theme: AppSettings["theme"]): void {
 
 export function App(): JSX.Element {
   const [profiles, setProfiles] = useState<ServerProfile[]>([]);
+  const [terminalProfiles, setTerminalProfiles] = useState<SshProfile[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [route, setRoute] = useState<Route>({ name: "home" });
   const [statuses, setStatuses] = useState<StatusMap>({});
+  const [terminalStatuses, setTerminalStatuses] = useState<Record<string, SshConnectionStatus>>({});
   const [navByServer, setNavByServer] = useState<Record<string, NavigationState>>({});
   const [crashByServer, setCrashByServer] = useState<Record<string, string>>({});
   const [loadErrorByServer, setLoadErrorByServer] = useState<Record<string, string>>({});
   const [certPrompt, setCertPrompt] = useState<CertificatePromptPayload | null>(null);
+  const [sshHostPrompt, setSshHostPrompt] = useState<SshHostKeyPrompt | null>(null);
   const autoConnected = useRef(false);
 
   const setStatus = useCallback((id: string, status: ServerStatus) => {
@@ -46,14 +63,22 @@ export function App(): JSX.Element {
     return list;
   }, []);
 
+  const refreshTerminalProfiles = useCallback(async () => {
+    const list = await unwrap(window.pve.terminalProfiles.list());
+    setTerminalProfiles(list);
+    return list;
+  }, []);
+
   // Initial load.
   useEffect(() => {
     void (async () => {
-      const [list, loaded] = await Promise.all([
+      const [list, sshList, loaded] = await Promise.all([
         unwrap(window.pve.profiles.list()),
+        unwrap(window.pve.terminalProfiles.list()),
         unwrap(window.pve.settings.get()),
       ]);
       setProfiles(list);
+      setTerminalProfiles(sshList);
       setSettings(loaded);
       applyTheme(loaded.theme);
     })();
@@ -89,6 +114,16 @@ export function App(): JSX.Element {
     const offCert = window.pve.on("certificate:prompt", (payload) => {
       setCertPrompt(payload as CertificatePromptPayload);
     });
+    const offTerminalStatus = window.pve.on("terminal:status", (payload) => {
+      const { profileId, status } = payload as {
+        profileId: string;
+        status: SshConnectionStatus;
+      };
+      setTerminalStatuses((previous) => ({ ...previous, [profileId]: status }));
+    });
+    const offSshHost = window.pve.on("sshHost:prompt", (payload) => {
+      setSshHostPrompt(payload as SshHostKeyPrompt);
+    });
     return () => {
       offNav();
       offLoaded();
@@ -96,6 +131,8 @@ export function App(): JSX.Element {
       offCrash();
       offLoad();
       offCert();
+      offTerminalStatus();
+      offSshHost();
     };
   }, [setStatus]);
 
@@ -132,6 +169,10 @@ export function App(): JSX.Element {
         ? route.serverId
         : null;
   const activeProfile = profiles.find((p) => p.id === activeServerId) ?? null;
+  const activeTerminal =
+    route.name === "terminal"
+      ? terminalProfiles.find((profile) => profile.id === route.profileId) ?? null
+      : null;
 
   const handleCertDecision = async (
     decision: "cancel" | "trust-once" | "trust-and-pin" | "replace-pin",
@@ -139,6 +180,12 @@ export function App(): JSX.Element {
     if (!certPrompt) return;
     await unwrap(window.pve.certificate.respond(certPrompt.requestId, decision));
     setCertPrompt(null);
+  };
+
+  const handleSshHostDecision = async (decision: SshHostKeyDecision) => {
+    if (!sshHostPrompt) return;
+    await unwrap(window.pve.terminal.respondToHostKey(sshHostPrompt.requestId, decision));
+    setSshHostPrompt(null);
   };
 
   const renderMain = () => {
@@ -177,6 +224,31 @@ export function App(): JSX.Element {
             }}
             onCancel={() => setRoute({ name: "home" })}
           />
+        );
+      case "terminal-add":
+        return (
+          <AddTerminal
+            onSaved={async (id) => {
+              await refreshTerminalProfiles();
+              setRoute({ name: "terminal", profileId: id });
+            }}
+            onCancel={() => setRoute({ name: "home" })}
+          />
+        );
+      case "terminal":
+        if (!activeTerminal) {
+          return <div className="page"><div className="empty">SSH connection not found.</div></div>;
+        }
+        return (
+          <Suspense fallback={<div className="empty">Loading terminal…</div>}>
+            <TerminalWorkspace
+              profile={activeTerminal}
+              onDeleted={async () => {
+                await refreshTerminalProfiles();
+                setRoute({ name: "home" });
+              }}
+            />
+          </Suspense>
         );
       case "diagnostics":
         return <Diagnostics profiles={profiles} initialServerId={route.serverId} />;
@@ -221,15 +293,22 @@ export function App(): JSX.Element {
           <Topbar
             activeProfile={route.name === "workspace" ? activeProfile : null}
             status={activeProfile ? (statuses[activeProfile.id] ?? "disconnected") : null}
+            activeTerminal={activeTerminal}
+            terminalStatus={
+              activeTerminal ? (terminalStatuses[activeTerminal.id] ?? "disconnected") : null
+            }
           />
         }
         sidebar={
           <Sidebar
             profiles={profiles}
             statuses={statuses}
+            terminalProfiles={terminalProfiles}
+            terminalStatuses={terminalStatuses}
             route={route}
             activeServerId={activeServerId}
             onSelectServer={openServer}
+            onSelectTerminal={(id) => setRoute({ name: "terminal", profileId: id })}
             onNavigate={setRoute}
           />
         }
@@ -238,6 +317,9 @@ export function App(): JSX.Element {
       </AppShell>
 
       {certPrompt && <CertificateDialog prompt={certPrompt} onDecide={handleCertDecision} />}
+      {sshHostPrompt && (
+        <SshHostKeyDialog prompt={sshHostPrompt} onDecide={handleSshHostDecision} />
+      )}
     </>
   );
 }

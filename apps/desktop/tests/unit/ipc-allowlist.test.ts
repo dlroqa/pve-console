@@ -11,6 +11,8 @@ describe("IPC allowlist (spec §6.2)", () => {
     expect(isInvokeChannel("profiles:list")).toBe(true);
     expect(isInvokeChannel("diagnostics:run")).toBe(true);
     expect(isInvokeChannel("certificate:respond")).toBe(true);
+    expect(isInvokeChannel("terminal:connect")).toBe(true);
+    expect(isInvokeChannel("terminal:write")).toBe(true);
   });
 
   it("rejects unapproved / generic channels", () => {
@@ -30,6 +32,8 @@ describe("IPC allowlist (spec §6.2)", () => {
   it("recognizes approved event channels only", () => {
     expect(isEventChannel("certificate:prompt")).toBe(true);
     expect(isEventChannel("server:navigation")).toBe(true);
+    expect(isEventChannel("terminal:data")).toBe(true);
+    expect(isEventChannel("sshHost:prompt")).toBe(true);
     expect(isEventChannel("totally:made-up")).toBe(false);
   });
 

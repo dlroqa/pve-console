@@ -39,8 +39,17 @@ Fingerprints are SHA-256, normalized to `AA:BB:CC:…` (spec §5.1).
 ## Secrets (spec §6.3, §37)
 
 Server profile files contain no plaintext credentials — the schema rejects any
-secret-bearing field. Sensitive values (Version 2 API tokens) are encrypted via
-Electron `safeStorage` (OS credential store) in a separate file from config.
+secret-bearing field. Sensitive values (API tokens, SSH passwords, SSH private
+keys and key passphrases) are encrypted via Electron `safeStorage` (OS
+credential store) in a separate file from config. SSH credentials never cross
+into embedded Proxmox content.
+
+## SSH host verification
+
+Remote terminal sessions run in the main process and require an explicit host
+key decision for first-seen keys. Saved SHA-256 fingerprints are checked on
+every connection. A changed key produces a blocking warning that shows both
+the previous and presented fingerprints; it is never replaced silently.
 
 ## Navigation (spec §6.4, §41)
 

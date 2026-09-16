@@ -17,6 +17,8 @@ export type Route =
   | { name: "workspace"; serverId: string }
   | { name: "add" }
   | { name: "edit"; serverId: string }
+  | { name: "terminal"; profileId: string }
+  | { name: "terminal-add" }
   | { name: "diagnostics"; serverId?: string }
   | { name: "settings" };
 

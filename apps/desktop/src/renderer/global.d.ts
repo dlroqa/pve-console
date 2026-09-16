@@ -19,6 +19,11 @@ import type {
   GuestSummary,
 } from "../proxmox/proxmox-types";
 import type { AiStatus, AiAnalysisResult, AiProvider } from "../ai/ai-types";
+import type {
+  CreateSshProfileInput,
+  SshConnectInput,
+  SshProfile,
+} from "../ssh/ssh-types";
 
 export interface AppInfo {
   name: string;
@@ -91,6 +96,18 @@ export interface PveBridge {
     setApiKey: (provider: AiProvider, key: string) => Promise<IpcResult<boolean>>;
     removeApiKey: (provider: AiProvider) => Promise<IpcResult<boolean>>;
     analyze: (profileId: string, kind: string, input?: string) => Promise<IpcResult<AiAnalysisResult>>;
+  };
+  terminalProfiles: {
+    list: () => Promise<IpcResult<SshProfile[]>>;
+    create: (input: CreateSshProfileInput) => Promise<IpcResult<SshProfile>>;
+    delete: (id: string) => Promise<IpcResult<boolean>>;
+  };
+  terminal: {
+    connect: (input: SshConnectInput) => Promise<IpcResult<{ sessionId: string }>>;
+    write: (sessionId: string, data: string) => Promise<IpcResult<boolean>>;
+    resize: (sessionId: string, cols: number, rows: number) => Promise<IpcResult<boolean>>;
+    disconnect: (sessionId: string) => Promise<IpcResult<boolean>>;
+    respondToHostKey: (requestId: string, decision: string) => Promise<IpcResult<boolean>>;
   };
   on: (channel: string, listener: (payload: unknown) => void) => () => void;
 }

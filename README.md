@@ -7,6 +7,10 @@ purpose-built, hardened desktop shell. You configure a Proxmox server by IP addr
 domain, safely accept/pin its TLS certificate, and sign into the real Proxmox interface
 inside the app — with independent, isolated sessions per server.
 
+The Terminal section also provides direct SSH sessions to VMs and hosts with
+password or private-key authentication, encrypted credential storage, and
+explicit SHA-256 host-key verification.
+
 ## Technology stack
 
 - **Desktop runtime:** Electron
@@ -14,6 +18,7 @@ inside the app — with independent, isolated sessions per server.
 - **Language:** TypeScript
 - **Bundler:** Vite
 - **Embedded UI:** Electron `WebContentsView`
+- **Remote terminal:** xterm.js + SSH2
 - **Package manager:** npm
 - **Secret storage:** Electron `safeStorage` / OS credential store
 - **Testing:** Vitest + Playwright
