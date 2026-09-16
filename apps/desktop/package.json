@@ -1,6 +1,6 @@
 {
   "name": "pve-console-desktop",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "PVE Console desktop application (Electron + React + TypeScript + Vite).",
   "desktopName": "pve-console",
