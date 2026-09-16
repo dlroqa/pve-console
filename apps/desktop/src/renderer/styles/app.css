@@ -343,6 +343,11 @@ a {
 }
 .diag-row .msg {
   flex: 1;
+  min-width: 0;
+}
+.certificate-pin .certificate-fingerprint {
+  display: block;
+  overflow-wrap: anywhere;
 }
 .diag-row .causes {
   margin: 6px 0 0;

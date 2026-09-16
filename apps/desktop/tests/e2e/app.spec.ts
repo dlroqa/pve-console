@@ -1,5 +1,5 @@
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from "@playwright/test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -13,8 +13,25 @@ let app: ElectronApplication;
 let win: Page;
 let userDataDir: string;
 
+const PINNED_FINGERPRINT = Array.from({ length: 32 }, (_, index) =>
+  index.toString(16).padStart(2, "0").toUpperCase(),
+).join(":");
+
 test.beforeAll(async () => {
   userDataDir = await mkdtemp(join(tmpdir(), "pve-e2e-"));
+  await writeFile(
+    join(userDataDir, "certificate-pins.json"),
+    JSON.stringify([
+      {
+        serverProfileId: "e2e-certificate",
+        host: "192.168.250.250",
+        port: 8006,
+        fingerprintSha256: PINNED_FINGERPRINT,
+        approvedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]),
+    "utf8",
+  );
   app = await electron.launch({
     args: [resolve(__dirname, "../../dist/main/main.js"), `--user-data-dir=${userDataDir}`],
     cwd: resolve(__dirname, "../.."),
@@ -31,6 +48,25 @@ test.afterAll(async () => {
 
 test("app launches and renders the shell", async () => {
   await expect(win.locator(".brand")).toHaveText("PVE Console");
+});
+
+test("certificate fingerprint stays inside its card at minimum window width", async () => {
+  await app.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setSize(940, 600);
+  });
+
+  await win.getByRole("button", { name: "Settings" }).click();
+  await expect(win.locator("h1")).toHaveText("Settings");
+  await expect(win.locator(".certificate-fingerprint")).toHaveText(PINNED_FINGERPRINT);
+
+  await expect
+    .poll(() =>
+      win.locator(".certificate-pin").evaluate((message) => {
+        const card = message.closest<HTMLElement>(".diag-row");
+        return card !== null && card.scrollWidth <= card.clientWidth;
+      }),
+    )
+    .toBe(true);
 });
 
 test("can create a server, run diagnostics context, then delete it", async () => {

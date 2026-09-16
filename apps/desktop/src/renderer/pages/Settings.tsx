@@ -231,12 +231,12 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
               <span className="label">
                 {pin.host}:{pin.port}
               </span>
-              <span className="msg">
-                {pin.fingerprintSha256}
+              <div className="msg certificate-pin">
+                <span className="certificate-fingerprint">{pin.fingerprintSha256}</span>
                 <div style={{ color: "var(--text-faint)", fontSize: 12 }}>
                   pinned {new Date(pin.approvedAt).toLocaleString()}
                 </div>
-              </span>
+              </div>
             </div>
           ))}
         </div>
