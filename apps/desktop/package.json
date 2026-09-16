@@ -1,6 +1,6 @@
 {
   "name": "pve-console-desktop",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "PVE Console desktop application (Electron + React + TypeScript + Vite).",
   "homepage": "https://github.com/dlroqa/pve-console",
