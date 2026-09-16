@@ -20,7 +20,6 @@ import { EditServer } from "./pages/EditServer";
 import { Diagnostics } from "./pages/Diagnostics";
 import { Settings } from "./pages/Settings";
 import { ServerWorkspace } from "./pages/ServerWorkspace";
-import { AddTerminal } from "./pages/AddTerminal";
 import { unwrap } from "./ipc";
 import type { CertificatePromptPayload, Route, StatusMap } from "./types";
 
@@ -225,15 +224,16 @@ export function App(): JSX.Element {
             onCancel={() => setRoute({ name: "home" })}
           />
         );
-      case "terminal-add":
+      case "terminal-new":
         return (
-          <AddTerminal
-            onSaved={async (id) => {
-              await refreshTerminalProfiles();
-              setRoute({ name: "terminal", profileId: id });
-            }}
-            onCancel={() => setRoute({ name: "home" })}
-          />
+          <Suspense fallback={<div className="empty">Loading terminal...</div>}>
+            <TerminalWorkspace
+              key="terminal-new"
+              onProfilesChanged={async () => {
+                await refreshTerminalProfiles();
+              }}
+            />
+          </Suspense>
         );
       case "terminal":
         if (!activeTerminal) {
@@ -242,7 +242,11 @@ export function App(): JSX.Element {
         return (
           <Suspense fallback={<div className="empty">Loading terminal…</div>}>
             <TerminalWorkspace
+              key={activeTerminal.id}
               profile={activeTerminal}
+              onProfilesChanged={async () => {
+                await refreshTerminalProfiles();
+              }}
               onDeleted={async () => {
                 await refreshTerminalProfiles();
                 setRoute({ name: "home" });
@@ -294,6 +298,7 @@ export function App(): JSX.Element {
             activeProfile={route.name === "workspace" ? activeProfile : null}
             status={activeProfile ? (statuses[activeProfile.id] ?? "disconnected") : null}
             activeTerminal={activeTerminal}
+            activeTerminalLabel={route.name === "terminal-new" ? "New SSH terminal" : undefined}
             terminalStatus={
               activeTerminal ? (terminalStatuses[activeTerminal.id] ?? "disconnected") : null
             }

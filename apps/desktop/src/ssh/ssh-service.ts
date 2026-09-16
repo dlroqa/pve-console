@@ -3,8 +3,11 @@ import { Client, type ClientChannel, type ConnectConfig } from "ssh2";
 import { ConfigStore } from "../storage/config-store";
 import type { SshProfileManager } from "./ssh-profile-manager";
 import type {
+  SshAuthType,
   SshConnectInput,
+  SshConnectResult,
   SshConnectionStatus,
+  SshDirectConnectInput,
   SshHostKeyDecision,
   SshHostKeyPrompt,
 } from "./ssh-types";
@@ -20,6 +23,46 @@ interface ActiveSession {
   profileId: string;
   client: Client;
   stream: ClientChannel;
+}
+
+interface SshTarget {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+  authType: SshAuthType;
+}
+
+function validateText(value: unknown, label: string, max: number): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new SshError(`${label} is required.`, ErrorCode.PROFILE_ERROR);
+  }
+  const normalized = value.trim();
+  if (normalized.length > max) throw new SshError(`${label} is too long.`, ErrorCode.PROFILE_ERROR);
+  return normalized;
+}
+
+function validatePort(value: unknown): number {
+  const port = value === undefined ? 22 : Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new SshError("SSH port must be between 1 and 65535.", ErrorCode.PROFILE_ERROR);
+  }
+  return port;
+}
+
+function validateAuthType(value: unknown): SshAuthType {
+  if (value !== "password" && value !== "private-key") {
+    throw new SshError("Choose password or private-key authentication.", ErrorCode.PROFILE_ERROR);
+  }
+  return value;
+}
+
+function terminalSize(cols: unknown, rows: unknown): { cols: number; rows: number } {
+  return {
+    cols: Math.max(20, Math.min(500, Math.floor(Number(cols) || 80))),
+    rows: Math.max(5, Math.min(300, Math.floor(Number(rows) || 24))),
+  };
 }
 
 export class SshService {
@@ -41,7 +84,7 @@ export class SshService {
     this.emit("terminal:status", { profileId, sessionId, status, message });
   }
 
-  async connect(input: SshConnectInput): Promise<{ sessionId: string }> {
+  async connect(input: SshConnectInput): Promise<SshConnectResult> {
     const profile = await this.profiles.get(String(input.profileId));
     if (!profile) throw new SshError("SSH connection not found.", ErrorCode.PROFILE_ERROR);
 
@@ -55,22 +98,53 @@ export class SshService {
       );
     }
 
-    const cols = Math.max(20, Math.min(500, Math.floor(Number(input.cols) || 80)));
-    const rows = Math.max(5, Math.min(300, Math.floor(Number(input.rows) || 24)));
+    return this.connectTarget(profile, credential, passphrase, terminalSize(input.cols, input.rows));
+  }
+
+  async connectDirect(input: SshDirectConnectInput): Promise<SshConnectResult> {
+    const authType = validateAuthType(input.authType);
+    const credential = typeof input.credential === "string" ? input.credential : "";
+    if (!credential) {
+      throw new SshError(
+        authType === "password" ? "Enter the SSH password." : "Enter the private key.",
+        ErrorCode.AUTH_ERROR,
+      );
+    }
+
+    const host = validateText(input.host, "Host", 253);
+    const username = validateText(input.username, "Username", 128);
+    const target: SshTarget = {
+      id: validateText(input.targetId, "Terminal id", 80),
+      name: input.name?.trim() || `${username}@${host}`,
+      host,
+      port: validatePort(input.port),
+      username,
+      authType,
+    };
+
+    return this.connectTarget(target, credential, input.passphrase, terminalSize(input.cols, input.rows));
+  }
+
+  private async connectTarget(
+    target: SshTarget,
+    credential: string,
+    passphrase: string | undefined,
+    size: { cols: number; rows: number },
+  ): Promise<SshConnectResult> {
     const sessionId = randomUUID();
     const client = new Client();
-    this.emitStatus(profile.id, "connecting", sessionId);
+    this.emitStatus(target.id, "connecting", sessionId);
 
     const knownHosts = await this.config.readJson<Record<string, string>>(KNOWN_HOSTS_FILE, {});
-    const hostKey = `${profile.host.toLowerCase()}:${profile.port}`;
+    const hostKey = `${target.host.toLowerCase()}:${target.port}`;
 
-    return new Promise<{ sessionId: string }>((resolve, reject) => {
+    return new Promise<SshConnectResult>((resolve, reject) => {
       let settled = false;
       let hadError = false;
       const fail = (err: Error): void => {
         hadError = true;
         const message = err.message || "SSH connection failed.";
-        this.emitStatus(profile.id, "error", sessionId, message);
+        this.emitStatus(target.id, "error", sessionId, message);
         if (!settled) {
           settled = true;
           const code = /auth|password|private key/i.test(message)
@@ -81,9 +155,9 @@ export class SshService {
       };
 
       const connectConfig: ConnectConfig = {
-        host: profile.host,
-        port: profile.port,
-        username: profile.username,
+        host: target.host,
+        port: target.port,
+        username: target.username,
         hostVerifier: (key: Buffer, verify: (verified: boolean) => void): void => {
           const fingerprint = createHash("sha256").update(key).digest("base64").replace(/=+$/, "");
           const previousFingerprint = knownHosts[hostKey];
@@ -92,10 +166,10 @@ export class SshService {
             return;
           }
           void this.promptHostKey({
-            profileId: profile.id,
-            profileName: profile.name,
-            host: profile.host,
-            port: profile.port,
+            profileId: target.id,
+            profileName: target.name,
+            host: target.host,
+            port: target.port,
             fingerprint: `SHA256:${fingerprint}`,
             previousFingerprint: previousFingerprint ? `SHA256:${previousFingerprint}` : undefined,
           })
@@ -111,20 +185,20 @@ export class SshService {
         keepaliveInterval: 15_000,
         keepaliveCountMax: 3,
         readyTimeout: 20_000,
-        ...(profile.authType === "password"
+        ...(target.authType === "password"
           ? { password: credential }
           : { privateKey: credential, passphrase: passphrase || undefined }),
       };
 
       client
         .once("ready", () => {
-          client.shell({ term: "xterm-256color", cols, rows }, (err, stream) => {
+          client.shell({ term: "xterm-256color", cols: size.cols, rows: size.rows }, (err, stream) => {
             if (err) {
               client.end();
               fail(err);
               return;
             }
-            this.sessions.set(sessionId, { profileId: profile.id, client, stream });
+            this.sessions.set(sessionId, { profileId: target.id, client, stream });
             stream.on("data", (data: Buffer) => {
               this.emit("terminal:data", { sessionId, data: data.toString("utf8") });
             });
@@ -136,14 +210,14 @@ export class SshService {
               client.end();
             });
             settled = true;
-            this.emitStatus(profile.id, "connected", sessionId);
-            resolve({ sessionId });
+            this.emitStatus(target.id, "connected", sessionId);
+            resolve({ sessionId, profileId: target.id });
           });
         })
         .on("error", fail)
         .once("close", () => {
           this.sessions.delete(sessionId);
-          if (!hadError) this.emitStatus(profile.id, "disconnected", sessionId);
+          if (!hadError) this.emitStatus(target.id, "disconnected", sessionId);
           if (!settled) {
             settled = true;
             reject(new SshError("SSH connection closed before the shell was ready."));

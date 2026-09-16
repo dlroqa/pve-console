@@ -575,6 +575,35 @@ a {
 .terminal-state.error {
   color: var(--err);
 }
+.terminal-connectbar {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.9fr) minmax(150px, 1.2fr) 76px minmax(100px, 0.8fr) minmax(118px, 0.8fr) minmax(140px, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--bg-elev-2);
+  border-bottom: 1px solid var(--border);
+}
+.terminal-connectbar input,
+.terminal-connectbar select {
+  min-width: 0;
+}
+.terminal-connectbar .terminal-port-input {
+  text-align: center;
+}
+.terminal-connectbar .key-picker.compact {
+  min-height: 37px;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.terminal-save-toggle {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 .terminal-authbar {
   display: flex;
   align-items: center;

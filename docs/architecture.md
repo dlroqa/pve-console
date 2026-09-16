@@ -30,10 +30,10 @@ Electron Main Process            React Renderer (native shell)
   allowlisted preload bridge.
 - **Embedded Proxmox content**: rendered with `WebContentsView` (never an
   `<iframe>` or `<webview>` tag), each in its own isolated persistent session.
-- **SSH terminal** (`src/ssh`): connection profiles, encrypted credential
-  lookup, host-key verification and SSH streams remain in the trusted main
-  process. The renderer receives terminal output and sends keystrokes through
-  narrowly allowlisted IPC channels.
+- **SSH terminal** (`src/ssh`): direct SSH targets, optional saved connection
+  profiles, encrypted credential lookup, host-key verification and SSH streams
+  remain in the trusted main process. The renderer receives terminal output and
+  sends keystrokes through narrowly allowlisted IPC channels.
 
 ## Layer boundaries
 

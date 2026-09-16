@@ -22,6 +22,8 @@ import type { AiStatus, AiAnalysisResult, AiProvider } from "../ai/ai-types";
 import type {
   CreateSshProfileInput,
   SshConnectInput,
+  SshConnectResult,
+  SshDirectConnectInput,
   SshProfile,
 } from "../ssh/ssh-types";
 
@@ -103,7 +105,8 @@ export interface PveBridge {
     delete: (id: string) => Promise<IpcResult<boolean>>;
   };
   terminal: {
-    connect: (input: SshConnectInput) => Promise<IpcResult<{ sessionId: string }>>;
+    connect: (input: SshConnectInput) => Promise<IpcResult<SshConnectResult>>;
+    connectDirect: (input: SshDirectConnectInput) => Promise<IpcResult<SshConnectResult>>;
     write: (sessionId: string, data: string) => Promise<IpcResult<boolean>>;
     resize: (sessionId: string, cols: number, rows: number) => Promise<IpcResult<boolean>>;
     disconnect: (sessionId: string) => Promise<IpcResult<boolean>>;

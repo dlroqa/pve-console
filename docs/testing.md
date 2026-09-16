@@ -40,7 +40,8 @@ These require a live Proxmox VE server and are verified by hand:
 - WebSocket stability during console use and window resize
 - file upload / download
 - cookies persist per-server only; logging out of one server does not affect another
-- SSH password and private-key authentication against a live VM
+- direct unsaved SSH password and private-key authentication against a live VM
+- optional saved SSH connection reuse with encrypted credentials
 - first-seen and changed SSH host-key confirmation
 - interactive SSH input, output, terminal resizing and disconnect behavior
 

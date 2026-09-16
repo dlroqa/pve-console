@@ -18,7 +18,7 @@ export type Route =
   | { name: "add" }
   | { name: "edit"; serverId: string }
   | { name: "terminal"; profileId: string }
-  | { name: "terminal-add" }
+  | { name: "terminal-new" }
   | { name: "diagnostics"; serverId?: string }
   | { name: "settings" };
 

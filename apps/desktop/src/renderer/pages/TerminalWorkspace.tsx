@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import type { SshConnectionStatus, SshProfile } from "../../ssh/ssh-types";
+import type { CreateSshProfileInput, SshAuthType, SshConnectionStatus, SshProfile } from "../../ssh/ssh-types";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { errorMessage, unwrap } from "../ipc";
 
 interface Props {
-  profile: SshProfile;
-  onDeleted: () => Promise<void>;
+  profile?: SshProfile | null;
+  onDeleted?: () => Promise<void>;
+  onProfilesChanged?: () => Promise<void>;
 }
 
 interface TerminalDataEvent {
@@ -22,17 +23,44 @@ interface TerminalStatusEvent {
   message?: string;
 }
 
-export function TerminalWorkspace({ profile, onDeleted }: Props): JSX.Element {
+function defaultDirectId(): string {
+  return `direct:${window.crypto.randomUUID()}`;
+}
+
+function defaultName(username: string, host: string): string {
+  const user = username.trim();
+  const target = host.trim();
+  return user && target ? `${user}@${target}` : "SSH terminal";
+}
+
+export function TerminalWorkspace({ profile, onDeleted, onProfilesChanged }: Props): JSX.Element {
   const mountRef = useRef<HTMLDivElement>(null);
+  const hostInputRef = useRef<HTMLInputElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const sessionRef = useRef<string | null>(null);
+  const directTargetIdRef = useRef(defaultDirectId());
+  const activeTargetIdRef = useRef(profile?.id ?? directTargetIdRef.current);
+  const [currentProfile, setCurrentProfile] = useState<SshProfile | null>(profile ?? null);
+  const [name, setName] = useState("");
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState("22");
+  const [username, setUsername] = useState("");
+  const [authType, setAuthType] = useState<SshAuthType>("password");
   const [credential, setCredential] = useState("");
   const [passphrase, setPassphrase] = useState("");
+  const [saveConnection, setSaveConnection] = useState(false);
   const [status, setStatus] = useState<SshConnectionStatus>("disconnected");
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    setCurrentProfile(profile ?? null);
+    activeTargetIdRef.current = profile?.id ?? directTargetIdRef.current;
+    setStatus("disconnected");
+    setError(null);
+  }, [profile]);
 
   const resize = useCallback(() => {
     const terminal = terminalRef.current;
@@ -65,8 +93,9 @@ export function TerminalWorkspace({ profile, onDeleted }: Props): JSX.Element {
     terminalRef.current = terminal;
     fitRef.current = fit;
     fit.fit();
-    terminal.writeln(`PVE Console SSH — ${profile.username}@${profile.host}`);
-    terminal.writeln("Press Connect to start a session.\r\n");
+    terminal.writeln("PVE Console SSH");
+    terminal.writeln("Enter an SSH target above, then connect.\r\n");
+    hostInputRef.current?.focus();
 
     const inputDisposable = terminal.onData((data) => {
       const sessionId = sessionRef.current;
@@ -80,7 +109,7 @@ export function TerminalWorkspace({ profile, onDeleted }: Props): JSX.Element {
     });
     const offStatus = window.pve.on("terminal:status", (payload) => {
       const event = payload as TerminalStatusEvent;
-      if (event.profileId !== profile.id) return;
+      if (event.profileId !== activeTargetIdRef.current) return;
       if (event.sessionId && sessionRef.current && event.sessionId !== sessionRef.current) return;
       setStatus(event.status);
       if (event.message) setError(event.message);
@@ -102,26 +131,74 @@ export function TerminalWorkspace({ profile, onDeleted }: Props): JSX.Element {
       fitRef.current = null;
       sessionRef.current = null;
     };
-  }, [profile.host, profile.id, profile.username, resize]);
+  }, [resize]);
+
+  const readPrivateKey = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) setCredential(await file.text());
+  };
 
   const connect = async () => {
     const terminal = terminalRef.current;
     if (!terminal) return;
     setError(null);
     setStatus("connecting");
-    terminal.writeln("\r\n\x1b[90m[Connecting…]\x1b[0m");
+    terminal.writeln("\r\n\x1b[90m[Connecting...]\x1b[0m");
     resize();
     try {
-      const { sessionId } = await unwrap(
-        window.pve.terminal.connect({
-          profileId: profile.id,
-          credential: credential || undefined,
+      let result: { sessionId: string; profileId: string };
+      if (currentProfile) {
+        activeTargetIdRef.current = currentProfile.id;
+        result = await unwrap(
+          window.pve.terminal.connect({
+            profileId: currentProfile.id,
+            credential: credential || undefined,
+            passphrase: passphrase || undefined,
+            cols: terminal.cols,
+            rows: terminal.rows,
+          }),
+        );
+      } else if (saveConnection) {
+        const input: CreateSshProfileInput = {
+          name: name.trim() || defaultName(username, host),
+          host,
+          port: Number(port),
+          username,
+          authType,
+          credential,
           passphrase: passphrase || undefined,
-          cols: terminal.cols,
-          rows: terminal.rows,
-        }),
-      );
-      sessionRef.current = sessionId;
+          rememberCredential: true,
+        };
+        const saved = await unwrap(window.pve.terminalProfiles.create(input));
+        setCurrentProfile(saved);
+        activeTargetIdRef.current = saved.id;
+        await onProfilesChanged?.();
+        result = await unwrap(
+          window.pve.terminal.connect({
+            profileId: saved.id,
+            cols: terminal.cols,
+            rows: terminal.rows,
+          }),
+        );
+      } else {
+        activeTargetIdRef.current = directTargetIdRef.current;
+        result = await unwrap(
+          window.pve.terminal.connectDirect({
+            targetId: directTargetIdRef.current,
+            name: name.trim() || undefined,
+            host,
+            port: Number(port),
+            username,
+            authType,
+            credential,
+            passphrase: passphrase || undefined,
+            cols: terminal.cols,
+            rows: terminal.rows,
+          }),
+        );
+      }
+      sessionRef.current = result.sessionId;
+      activeTargetIdRef.current = result.profileId;
       setStatus("connected");
       setCredential("");
       setPassphrase("");
@@ -130,6 +207,11 @@ export function TerminalWorkspace({ profile, onDeleted }: Props): JSX.Element {
       setStatus("error");
       setError(errorMessage(err));
     }
+  };
+
+  const submitConnect = (event: FormEvent) => {
+    event.preventDefault();
+    void connect();
   };
 
   const disconnect = async () => {
@@ -141,11 +223,12 @@ export function TerminalWorkspace({ profile, onDeleted }: Props): JSX.Element {
   };
 
   const deleteProfile = async () => {
+    if (!currentProfile || !onDeleted) return;
     setDeleting(true);
     try {
       const sessionId = sessionRef.current;
       if (sessionId) await unwrap(window.pve.terminal.disconnect(sessionId));
-      await unwrap(window.pve.terminalProfiles.delete(profile.id));
+      await unwrap(window.pve.terminalProfiles.delete(currentProfile.id));
       await onDeleted();
     } catch (err) {
       setError(errorMessage(err));
@@ -156,34 +239,126 @@ export function TerminalWorkspace({ profile, onDeleted }: Props): JSX.Element {
   };
 
   const connected = status === "connected";
+  const targetLabel = currentProfile?.name ?? (name.trim() || "New SSH terminal");
+  const targetAddress = currentProfile
+    ? `${currentProfile.username}@${currentProfile.host}:${currentProfile.port}`
+    : host.trim()
+      ? `${username.trim() || "user"}@${host.trim()}:${port || "22"}`
+      : "remote SSH";
+  const needsSavedCredential = currentProfile && !currentProfile.hasCredential && !connected;
+
   return (
     <div className="terminal-workspace">
       <div className="terminal-toolbar">
         <div className="terminal-target">
-          <strong>{profile.name}</strong>
-          <span>{profile.username}@{profile.host}:{profile.port}</span>
+          <strong>{targetLabel}</strong>
+          <span>{targetAddress}</span>
         </div>
         <span className={`terminal-state ${status}`}>{status}</span>
         <span className="spacer" />
         <button onClick={resize} disabled={!connected}>Fit</button>
         {connected ? (
           <button onClick={() => void disconnect()}>Disconnect</button>
-        ) : (
+        ) : currentProfile ? (
           <button className="primary" onClick={() => void connect()} disabled={status === "connecting"}>
-            {status === "connecting" ? "Connecting…" : "Connect"}
+            {status === "connecting" ? "Connecting..." : "Connect"}
           </button>
+        ) : null}
+        {currentProfile && onDeleted && (
+          <button className="danger" onClick={() => setConfirmDelete(true)}>Delete</button>
         )}
-        <button className="danger" onClick={() => setConfirmDelete(true)}>Delete</button>
       </div>
 
-      {!profile.hasCredential && !connected && (
-        <div className="terminal-authbar">
-          {profile.authType === "password" ? (
+      {!currentProfile && !connected && (
+        <form className="terminal-connectbar" onSubmit={submitConnect}>
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Name"
+            aria-label="Terminal name"
+          />
+          <input
+            ref={hostInputRef}
+            value={host}
+            onChange={(event) => setHost(event.target.value)}
+            placeholder="Host or IP"
+            aria-label="SSH host"
+            required
+          />
+          <input
+            className="terminal-port-input"
+            type="number"
+            min={1}
+            max={65535}
+            value={port}
+            onChange={(event) => setPort(event.target.value)}
+            aria-label="SSH port"
+            required
+          />
+          <input
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            placeholder="User"
+            aria-label="SSH username"
+            autoComplete="username"
+            required
+          />
+          <select
+            value={authType}
+            onChange={(event) => {
+              setAuthType(event.target.value as SshAuthType);
+              setCredential("");
+            }}
+            aria-label="SSH authentication type"
+          >
+            <option value="password">Password</option>
+            <option value="private-key">Private key</option>
+          </select>
+          {authType === "password" ? (
             <input
               type="password"
               value={credential}
               onChange={(event) => setCredential(event.target.value)}
-              placeholder={`Password for ${profile.username}`}
+              placeholder="Password"
+              autoComplete="current-password"
+              required
+            />
+          ) : (
+            <>
+              <label className="key-picker compact">
+                Key
+                <input type="file" onChange={readPrivateKey} required={!credential} />
+              </label>
+              <input
+                type="password"
+                value={passphrase}
+                onChange={(event) => setPassphrase(event.target.value)}
+                placeholder="Passphrase"
+              />
+            </>
+          )}
+          <label className="checkbox terminal-save-toggle">
+            <input
+              type="checkbox"
+              checked={saveConnection}
+              onChange={(event) => setSaveConnection(event.target.checked)}
+            />
+            Save
+          </label>
+          <button className="primary" type="submit" disabled={status === "connecting"}>
+            {status === "connecting" ? "Connecting..." : "Connect"}
+          </button>
+        </form>
+      )}
+
+      {needsSavedCredential && (
+        <div className="terminal-authbar">
+          {currentProfile.authType === "password" ? (
+            <input
+              type="password"
+              value={credential}
+              onChange={(event) => setCredential(event.target.value)}
+              placeholder={`Password for ${currentProfile.username}`}
               autoComplete="current-password"
               onKeyDown={(event) => {
                 if (event.key === "Enter") void connect();
@@ -193,13 +368,7 @@ export function TerminalWorkspace({ profile, onDeleted }: Props): JSX.Element {
             <>
               <label className="key-picker">
                 Private key
-                <input
-                  type="file"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void file.text().then(setCredential);
-                  }}
-                />
+                <input type="file" onChange={readPrivateKey} />
               </label>
               <input
                 type="password"
@@ -215,10 +384,10 @@ export function TerminalWorkspace({ profile, onDeleted }: Props): JSX.Element {
       {error && <div className="terminal-error">{error}</div>}
       <div className="terminal-surface" ref={mountRef} />
 
-      {confirmDelete && (
+      {confirmDelete && currentProfile && (
         <ConfirmDialog
           title="Delete SSH terminal?"
-          message={`Delete ${profile.name} and its encrypted credential?`}
+          message={`Delete ${currentProfile.name} and its encrypted credential?`}
           confirmLabel="Delete"
           danger
           busy={deleting}

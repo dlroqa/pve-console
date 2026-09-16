@@ -7,9 +7,10 @@ purpose-built, hardened desktop shell. You configure a Proxmox server by IP addr
 domain, safely accept/pin its TLS certificate, and sign into the real Proxmox interface
 inside the app — with independent, isolated sessions per server.
 
-The Terminal section also provides direct SSH sessions to VMs and hosts with
-password or private-key authentication, encrypted credential storage, and
-explicit SHA-256 host-key verification.
+The Terminal section opens directly into SSH sessions for VMs and hosts with
+password or private-key authentication. Connections can stay session-only or be
+saved with encrypted credential storage, and every host key requires explicit
+SHA-256 verification.
 
 ## Technology stack
 

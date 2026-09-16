@@ -7,21 +7,28 @@ interface Props {
   activeProfile: ServerProfile | null;
   status: Status | null;
   activeTerminal?: SshProfile | null;
+  activeTerminalLabel?: string;
   terminalStatus?: SshConnectionStatus | null;
 }
 
-export function Topbar({ activeProfile, status, activeTerminal, terminalStatus }: Props): JSX.Element {
+export function Topbar({
+  activeProfile,
+  status,
+  activeTerminal,
+  activeTerminalLabel,
+  terminalStatus,
+}: Props): JSX.Element {
   const description = activeProfile
     ? `${activeProfile.name} · ${activeProfile.host}:${activeProfile.port}`
     : activeTerminal
       ? `${activeTerminal.name} · ${activeTerminal.username}@${activeTerminal.host}:${activeTerminal.port}`
-      : "No server selected";
+      : activeTerminalLabel
+        ? activeTerminalLabel
+        : "No server selected";
   return (
     <header className="topbar">
       <span className="brand">PVE Console</span>
-      <span className="active-server">
-        {description}
-      </span>
+      <span className="active-server">{description}</span>
       <span className="spacer" />
       {activeProfile && status && <ServerStatus status={status} />}
       {activeTerminal && terminalStatus && (

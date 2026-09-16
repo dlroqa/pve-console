@@ -101,6 +101,7 @@ const api = {
   },
   terminal: {
     connect: (input: unknown) => ipcRenderer.invoke("terminal:connect", input),
+    connectDirect: (input: unknown) => ipcRenderer.invoke("terminal:connectDirect", input),
     write: (sessionId: string, data: string) =>
       ipcRenderer.invoke("terminal:write", sessionId, data),
     resize: (sessionId: string, cols: number, rows: number) =>

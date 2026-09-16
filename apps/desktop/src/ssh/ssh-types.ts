@@ -32,6 +32,24 @@ export interface SshConnectInput {
   rows: number;
 }
 
+export interface SshDirectConnectInput {
+  targetId: string;
+  name?: string;
+  host: string;
+  port?: number;
+  username: string;
+  authType: SshAuthType;
+  credential: string;
+  passphrase?: string;
+  cols: number;
+  rows: number;
+}
+
+export interface SshConnectResult {
+  sessionId: string;
+  profileId: string;
+}
+
 export type SshConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 
 export interface SshHostKeyPrompt {

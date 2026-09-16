@@ -58,6 +58,7 @@ export const INVOKE_CHANNELS = [
   "terminalProfiles:create",
   "terminalProfiles:delete",
   "terminal:connect",
+  "terminal:connectDirect",
   "terminal:write",
   "terminal:resize",
   "terminal:disconnect",

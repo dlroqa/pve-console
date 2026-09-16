@@ -33,6 +33,7 @@ import type { SshService } from "../ssh/ssh-service";
 import type {
   CreateSshProfileInput,
   SshConnectInput,
+  SshDirectConnectInput,
   SshHostKeyDecision,
   SshHostKeyPrompt,
 } from "../ssh/ssh-types";
@@ -346,6 +347,9 @@ export function registerIpcHandlers(services: AppServices): void {
   });
   handle("terminal:connect", services, (input) =>
     services.ssh.connect(input as SshConnectInput),
+  );
+  handle("terminal:connectDirect", services, (input) =>
+    services.ssh.connectDirect(input as SshDirectConnectInput),
   );
   handle("terminal:write", services, (sessionId, data) => {
     services.ssh.write(String(sessionId), String(data));

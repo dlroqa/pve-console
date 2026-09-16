@@ -75,8 +75,11 @@ export function Sidebar({
           </button>
         );
       })}
-      <button className="nav-item" onClick={() => onNavigate({ name: "terminal-add" })}>
-        + Add Terminal
+      <button
+        className={`nav-item ${route.name === "terminal-new" ? "active" : ""}`}
+        onClick={() => onNavigate({ name: "terminal-new" })}
+      >
+        + Terminal
       </button>
 
       <div className="footer">

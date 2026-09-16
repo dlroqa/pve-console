@@ -49,7 +49,10 @@ test.afterAll(async () => {
 test("app launches and renders the shell", async () => {
   await expect(win.locator(".brand")).toHaveText("PVE Console");
   await expect(win.locator(".section-label", { hasText: "Terminal" })).toBeVisible();
-  await expect(win.getByRole("button", { name: "+ Add Terminal" })).toBeVisible();
+  await expect(win.getByRole("button", { name: "+ Terminal" })).toBeVisible();
+  await win.getByRole("button", { name: "+ Terminal" }).click();
+  await expect(win.getByLabel("SSH host")).toBeVisible();
+  await expect(win.locator(".terminal-surface")).toBeVisible();
 });
 
 test("certificate fingerprint stays inside its card at minimum window width", async () => {
