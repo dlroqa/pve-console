@@ -74,6 +74,7 @@ interface FakeView {
   webContents: {
     loadURL: ReturnType<typeof vi.fn>;
     resolveLoad: (index: number) => void;
+    emit: (event: string, ...args: unknown[]) => boolean;
     close: ReturnType<typeof vi.fn>;
   };
 }
@@ -142,6 +143,63 @@ describe("WebContentsManager certificate prompt lifecycle", () => {
       payload: { profileId: profile.id },
     });
 
+    manager.destroyServer(profile.id);
+  });
+
+  it("reports connected when the validated page finishes before loadURL settles", async () => {
+    const { manager, events } = setup();
+    await manager.showServer(profile);
+    const view = electronState.views[0] as FakeView;
+
+    view.webContents.emit("did-finish-load");
+
+    expect(events.filter(({ event }) => event === "server:loaded")).toEqual([
+      {
+        event: "server:loaded",
+        payload: { profileId: profile.id },
+      },
+    ]);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(events.some(({ event }) => event === "server:load-error")).toBe(false);
+
+    view.webContents.resolveLoad(0);
+    await Promise.resolve();
+    expect(events.filter(({ event }) => event === "server:loaded")).toHaveLength(1);
+
+    manager.destroyServer(profile.id);
+  });
+
+  it("tracks later page loads from connecting back to connected", async () => {
+    const { manager, events } = setup();
+    await manager.showServer(profile);
+    const view = electronState.views[0] as FakeView;
+
+    view.webContents.resolveLoad(0);
+    await Promise.resolve();
+    events.length = 0;
+
+    view.webContents.emit("did-start-navigation", {}, "https://10.10.1.28:8006/", false, true);
+    expect(events).toContainEqual({
+      event: "server:status",
+      payload: { profileId: profile.id, status: "connecting" },
+    });
+
+    view.webContents.emit("did-finish-load");
+    expect(events).toContainEqual({
+      event: "server:loaded",
+      payload: { profileId: profile.id },
+    });
+
+    events.length = 0;
+    view.webContents.emit(
+      "did-start-navigation",
+      {},
+      "https://10.10.1.28:8006/#v1:0:18:4:::::::",
+      true,
+      true,
+    );
+    expect(events.some(({ event }) => event === "server:status")).toBe(false);
     manager.destroyServer(profile.id);
   });
 

@@ -46,6 +46,12 @@ export class WebContentsManager {
   private readonly loadTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /** Monotonic token per server so a stale load's late result is ignored. */
   private readonly loadToken = new Map<string, number>();
+  /** Token for a navigation started explicitly through webContents.loadURL. */
+  private readonly managedLoadToken = new Map<string, number>();
+  /** Current token whose main-frame navigation has failed. */
+  private readonly failedLoadToken = new Map<string, number>();
+  /** Current token already reported as connected. */
+  private readonly completedLoadToken = new Map<string, number>();
   /** Last requested URL, retained so certificate approval can start a fresh load. */
   private readonly loadUrl = new Map<string, string>();
   /** Views that must perform a fresh load the next time they are shown. */
@@ -91,23 +97,51 @@ export class WebContentsManager {
     installDownloadHandler(wc.session, profile.id, this.getSettings);
 
     wc.on("did-start-loading", () => this.emitNav(profile.id, wc));
+    // Same-document Proxmox hash navigation must not reset connection status:
+    // it can emit did-start-loading without a matching did-finish-load.
+    // Only main-frame, non-in-place navigation starts a status lifecycle.
+    wc.on("did-start-navigation", (_event, url, isInPlace, isMainFrame) => {
+      const currentToken = this.loadToken.get(profile.id);
+      if (
+        currentToken !== undefined &&
+        isMainFrame &&
+        !isInPlace &&
+        isAllowed(url) &&
+        !this.loadTimers.has(profile.id) &&
+        !this.certificateSuspended.has(profile.id)
+      ) {
+        const token = currentToken + 1;
+        this.loadToken.set(profile.id, token);
+        this.managedLoadToken.delete(profile.id);
+        this.failedLoadToken.delete(profile.id);
+        this.completedLoadToken.delete(profile.id);
+        this.emit("server:status", { profileId: profile.id, status: "connecting" });
+        this.armLoadTimer(profile.id, token);
+      }
+    });
     wc.on("did-stop-loading", () => this.emitNav(profile.id, wc));
     wc.on("did-navigate", () => this.emitNav(profile.id, wc));
     wc.on("did-navigate-in-page", () => this.emitNav(profile.id, wc));
+    wc.on("did-finish-load", () => {
+      const token = this.loadToken.get(profile.id);
+      if (token === undefined || !isAllowed(wc.getURL())) return;
+      this.completeLoad(profile.id, token);
+    });
 
-    // A main-frame load failed on a navigation NOT initiated by beginLoad
-    // (e.g. an in-page link or a user reload). beginLoad-driven loads are
-    // resolved by the loadURL promise instead, so we skip those here (guarded
-    // by an in-flight watchdog timer) to avoid double-handling. Chromium also
-    // fires did-fail-load then renders its own error page — detaching the view
-    // keeps the native retry overlay visible and clickable underneath.
+    // Chromium can render its own error page after did-fail-load. Record the
+    // failure against the current token so did-finish-load cannot misclassify
+    // that error document as a successful server connection.
     wc.on("did-fail-load", (_e, errorCode, errorDescription, _url, isMainFrame) => {
       // ERR_ABORTED (-3) is a normal side effect of redirects/reloads.
       if (!isMainFrame || errorCode === -3) return;
+      const token = this.loadToken.get(profile.id);
+      if (token !== undefined) this.failedLoadToken.set(profile.id, token);
       // A certificate decision deliberately pauses this navigation. Its stale
       // failure is ignored because the decision handler starts a fresh load.
       if (this.certificateSuspended.has(profile.id)) return;
-      if (this.loadTimers.has(profile.id)) return; // handled by beginLoad's promise
+      // A beginLoad navigation is handled by its loadURL rejection. Other
+      // navigations fail immediately rather than waiting for the watchdog.
+      if (token !== undefined && this.managedLoadToken.get(profile.id) === token) return;
       logger.warn({
         module: "webcontents",
         event: "did-fail-load",
@@ -159,6 +193,21 @@ export class WebContentsManager {
     );
   }
 
+  private completeLoad(profileId: string, token: number): void {
+    if (
+      this.loadToken.get(profileId) !== token ||
+      this.certificateSuspended.has(profileId) ||
+      this.failedLoadToken.get(profileId) === token ||
+      this.completedLoadToken.get(profileId) === token
+    ) {
+      return;
+    }
+    this.clearLoadTimer(profileId);
+    if (this.managedLoadToken.get(profileId) === token) this.managedLoadToken.delete(profileId);
+    this.completedLoadToken.set(profileId, token);
+    this.emit("server:loaded", { profileId });
+  }
+
   /** Attach an existing server view and make it the active native child view. */
   private attach(profileId: string): void {
     const view = this.views.get(profileId);
@@ -184,6 +233,8 @@ export class WebContentsManager {
   /** Mark a server's load as failed: detach the blank view and notify the UI. */
   private failLoad(profileId: string, message: string): void {
     this.clearLoadTimer(profileId);
+    this.managedLoadToken.delete(profileId);
+    this.completedLoadToken.delete(profileId);
     this.certificateSuspended.delete(profileId);
     this.certificatePromptWasActive.delete(profileId);
     this.needsReload.add(profileId);
@@ -228,12 +279,11 @@ export class WebContentsManager {
   }
 
   /**
-   * Load a URL into a server's view under a watchdog. The loadURL promise is
-   * the authoritative signal: it resolves once the page finishes loading and
-   * rejects on a network/TLS failure (Chromium's did-finish-load fires even for
-   * its own error page, so it cannot be trusted for success). If the page never
-   * settles, the watchdog detaches the view and surfaces a timeout so the user
-   * is never stranded on a blank screen.
+   * Load a URL into a server's view under a watchdog. Success can arrive from
+   * either the loadURL promise or a validated same-origin did-finish-load event;
+   * Proxmox may be interactive before Electron settles the promise. Failures are
+   * tokened so Chromium's generated error page cannot report a false connection.
+   * If neither signal settles, the watchdog surfaces a timeout.
    */
   private beginLoad(profileId: string, url: string): void {
     const view = this.views.get(profileId);
@@ -242,6 +292,9 @@ export class WebContentsManager {
     const token = (this.loadToken.get(profileId) ?? 0) + 1;
     this.loadToken.set(profileId, token);
     this.loadUrl.set(profileId, url);
+    this.managedLoadToken.set(profileId, token);
+    this.failedLoadToken.delete(profileId);
+    this.completedLoadToken.delete(profileId);
     const isCurrent = (): boolean => this.loadToken.get(profileId) === token;
 
     this.needsReload.delete(profileId);
@@ -251,11 +304,10 @@ export class WebContentsManager {
     view.webContents.loadURL(url).then(
       () => {
         if (!isCurrent()) return;
-        this.clearLoadTimer(profileId);
-        this.emit("server:loaded", { profileId });
+        this.completeLoad(profileId, token);
       },
       (err: unknown) => {
-        if (!isCurrent() || this.certificateSuspended.has(profileId)) return;
+        if (!isCurrent() || this.certificateSuspended.has(profileId) || this.completedLoadToken.get(profileId) === token) return;
         this.failLoad(profileId, (err as Error).message);
       },
     );
@@ -343,6 +395,9 @@ export class WebContentsManager {
   destroyServer(profileId: string): void {
     this.clearLoadTimer(profileId);
     this.loadToken.delete(profileId);
+    this.managedLoadToken.delete(profileId);
+    this.failedLoadToken.delete(profileId);
+    this.completedLoadToken.delete(profileId);
     this.loadUrl.delete(profileId);
     this.needsReload.delete(profileId);
     this.certificateSuspended.delete(profileId);
