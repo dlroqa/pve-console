@@ -207,17 +207,6 @@ a {
 .sidebar .terminal-dot.error {
   background: var(--err);
 }
-.terminal-nav-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.terminal-nav-copy > span,
-.terminal-nav-copy small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .terminal-nav-copy small {
   color: var(--text-faint);
   font-size: 10.5px;
@@ -772,23 +761,38 @@ a {
 }
 
 .ai-usage-indicator {
-  position: fixed;
-  right: 14px;
-  bottom: 10px;
-  z-index: 20;
+  position: static;
+  z-index: auto;
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 7px;
-  padding: 6px 9px;
+  max-width: min(480px, 46vw);
+  min-height: 30px;
+  padding: 4px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-faint);
-  background: color-mix(in srgb, var(--bg-elev) 92%, transparent);
+  background: var(--bg);
   font-size: 11px;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.22);
+  box-shadow: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ai-usage-indicator span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ai-usage-indicator.compact {
+  flex: 0 0 auto;
+  gap: 4px;
+  min-width: 43px;
+  max-width: 58px;
+  justify-content: center;
 }
 .ai-usage-indicator.ready { color: var(--text-dim); }
-.ai-pulse { color: var(--accent); font-size: 16px; }
+.ai-pulse { flex: 0 0 auto; color: var(--accent); font-size: 16px; }
+.ai-minimize { margin-left: 2px; color: var(--text-faint); font-size: 15px; }
 
 .terminal-toolbar > button.active { border-color: var(--accent); color: var(--accent); }
 .terminal-body { display: flex; flex: 1; min-height: 0; }
@@ -803,3 +807,56 @@ a {
 .terminal-file span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .terminal-explorer-error { padding: 10px; color: var(--err); font-size: 12px; }
 .terminal-body > .terminal-surface { flex: 1; width: 0; }
+
+.server-nav-copy,
+.terminal-nav-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.server-nav-copy > span,
+.terminal-nav-copy > span,
+.terminal-nav-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.renameable-nav-item {
+  cursor: pointer;
+}
+.sidebar-rename-button {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 3px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  opacity: 0;
+}
+.renameable-nav-item:hover .sidebar-rename-button,
+.renameable-nav-item:focus-within .sidebar-rename-button {
+  opacity: 1;
+}
+.sidebar-rename-button:hover {
+  color: var(--text);
+}
+.sidebar-rename-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 4px 7px;
+}
+
+.sidebar-nav-open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}

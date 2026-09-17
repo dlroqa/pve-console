@@ -14,7 +14,6 @@ import { Topbar } from "./components/Topbar";
 import { Sidebar } from "./components/Sidebar";
 import { CertificateDialog } from "./components/CertificateDialog";
 import { SshHostKeyDialog } from "./components/SshHostKeyDialog";
-import { AiUsageIndicator } from "./components/AiUsageIndicator";
 import { Home } from "./pages/Home";
 import { AddServer } from "./pages/AddServer";
 import { EditServer } from "./pages/EditServer";
@@ -207,6 +206,29 @@ export function App(): JSX.Element {
     setRoute({ name: "terminal-session", terminalId: terminal.id });
   }, []);
 
+  const renameServer = useCallback(async (id: string, name: string) => {
+    const updated = await unwrap(window.pve.profiles.update(id, { name }));
+    setProfiles((current) => current.map((profile) => profile.id === id ? updated : profile));
+  }, []);
+
+  const renameTerminal = useCallback(async (id: string, name: string, profileId?: string) => {
+    if (profileId) {
+      const updated = await unwrap(window.pve.terminalProfiles.update(profileId, { name }));
+      setTerminalProfiles((current) =>
+        current.map((profile) => profile.id === profileId ? updated : profile),
+      );
+      setOpenTerminals((current) =>
+        current.map((terminal) => terminal.profileId === profileId
+          ? { ...terminal, label: updated.name }
+          : terminal),
+      );
+      return;
+    }
+    setOpenTerminals((current) =>
+      current.map((terminal) => terminal.id === id ? { ...terminal, label: name } : terminal),
+    );
+  }, []);
+
   const handleCertDecision = async (
     decision: "cancel" | "trust-once" | "trust-and-pin" | "replace-pin",
   ) => {
@@ -329,7 +351,7 @@ export function App(): JSX.Element {
                 : undefined;
               return {
                 id: terminal.id,
-                label: profile?.name ?? terminal.label,
+                label: terminal.label,
                 profileId: terminal.profileId,
                 address: profile
                   ? `${profile.username}@${profile.host}:${profile.port}`
@@ -339,6 +361,8 @@ export function App(): JSX.Element {
             })}
             onSelectTerminal={openTerminal}
             onSelectOpenTerminal={(id) => setRoute({ name: "terminal-session", terminalId: id })}
+            onRenameServer={renameServer}
+            onRenameTerminal={renameTerminal}
             onNavigate={(nextRoute) => {
               if (nextRoute.name === "terminal-session" && nextRoute.terminalId === "new") {
                 openNewTerminal();
@@ -392,7 +416,6 @@ export function App(): JSX.Element {
         })}
       </AppShell>
 
-      <AiUsageIndicator />
       {certPrompt && <CertificateDialog prompt={certPrompt} onDecide={handleCertDecision} />}
       {sshHostPrompt && (
         <SshHostKeyDialog prompt={sshHostPrompt} onDecide={handleSshHostDecision} />

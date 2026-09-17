@@ -2,6 +2,7 @@ import type { ServerProfile } from "../../profiles/profile-types";
 import type { ServerStatus as Status } from "../../shared/types";
 import { ServerStatus } from "./ServerStatus";
 import type { SshConnectionStatus, SshProfile } from "../../ssh/ssh-types";
+import { AiUsageIndicator } from "./AiUsageIndicator";
 
 interface Props {
   activeProfile: ServerProfile | null;
@@ -30,6 +31,7 @@ export function Topbar({
       <span className="brand">PVE Console</span>
       <span className="active-server">{description}</span>
       <span className="spacer" />
+      <AiUsageIndicator />
       {activeProfile && status && <ServerStatus status={status} />}
       {(activeTerminal || activeTerminalLabel) && terminalStatus && (
         <span className={`terminal-state ${terminalStatus}`}>{terminalStatus}</span>

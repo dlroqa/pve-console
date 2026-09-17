@@ -49,6 +49,28 @@ describe("SSH profile persistence", () => {
     expect(profilesFile).not.toContain("credential");
   });
 
+  it("renames a saved profile without changing connection details or credentials", async () => {
+    const created = await manager.create({
+      name: "Original name",
+      host: "vm.example.test",
+      username: "deploy",
+      authType: "password",
+      credential: "secret",
+      rememberCredential: true,
+    });
+
+    const updated = await manager.update(created.id, { name: "Build VM" });
+
+    expect(updated).toMatchObject({
+      id: created.id,
+      name: "Build VM",
+      host: "vm.example.test",
+      username: "deploy",
+      hasCredential: true,
+    });
+    expect(await manager.getCredential(created.id)).toEqual({ credential: "secret" });
+  });
+
   it("supports session-only credentials and removes profiles cleanly", async () => {
     const profile = await manager.create({
       name: "Ephemeral VM",

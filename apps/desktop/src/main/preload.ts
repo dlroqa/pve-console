@@ -95,6 +95,7 @@ const api = {
   terminalProfiles: {
     list: () => ipcRenderer.invoke("terminalProfiles:list"),
     create: (input: unknown) => ipcRenderer.invoke("terminalProfiles:create", input),
+    update: (id: string, input: unknown) => ipcRenderer.invoke("terminalProfiles:update", id, input),
     delete: (id: string) => ipcRenderer.invoke("terminalProfiles:delete", id),
   },
   terminal: {

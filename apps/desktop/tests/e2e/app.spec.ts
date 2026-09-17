@@ -52,7 +52,13 @@ test("app launches and renders the shell", async () => {
   await expect(win.locator(".brand")).toHaveText("PVE Console");
   await expect(win.locator(".section-label", { hasText: "Terminal" })).toBeVisible();
   await expect(win.getByRole("button", { name: "+ Terminal" })).toBeVisible();
-  await expect(win.locator(".ai-usage-indicator")).toBeVisible();
+  const usage = win.locator(".ai-usage-indicator");
+  await expect(usage).toBeVisible();
+  await expect(usage).toHaveAttribute("aria-expanded", "true");
+  await usage.click();
+  await expect(usage).toHaveClass(/compact/);
+  await expect(usage).toHaveAttribute("aria-expanded", "false");
+  await usage.click();
   await win.getByRole("button", { name: "+ Terminal" }).click();
   await expect(win.getByLabel("Local file explorer")).toBeVisible();
   await expect(win.locator(".terminal-surface")).toBeVisible();
@@ -71,10 +77,15 @@ test("terminal workspaces remain independent and mounted while navigating", asyn
   await win.keyboard.type("printf 'FIRST_SESSION_MARKER\n'");
   await win.keyboard.press("Enter");
   await expect(activeRows()).toContainText("FIRST_SESSION_MARKER");
+  await win.getByRole("button", { name: "Rename Terminal 1" }).click();
+  const terminalName = win.getByLabel("Rename Terminal 1");
+  await terminalName.fill("API logs");
+  await terminalName.press("Enter");
+  await expect(win.getByRole("button", { name: /^API logs/ })).toBeVisible();
 
   await win.getByRole("button", { name: "Settings" }).click();
   await expect(win.locator("h1")).toHaveText("Settings");
-  await win.getByRole("button", { name: /^Terminal 1/ }).click();
+  await win.getByRole("button", { name: /^API logs/ }).click();
   await expect(activeRows()).toContainText("FIRST_SESSION_MARKER");
 
   await win.getByRole("button", { name: "+ Terminal" }).click();
@@ -84,7 +95,7 @@ test("terminal workspaces remain independent and mounted while navigating", asyn
   await win.keyboard.press("Enter");
   await expect(activeRows()).toContainText("SECOND_SESSION_MARKER");
 
-  await win.getByRole("button", { name: /^Terminal 1/ }).click();
+  await win.getByRole("button", { name: /^API logs/ }).click();
   await expect(activeRows()).toContainText("FIRST_SESSION_MARKER");
   await win.getByRole("button", { name: /^Terminal 2/ }).click();
   await expect(activeRows()).toContainText("SECOND_SESSION_MARKER");
@@ -119,8 +130,13 @@ test("can create a server, run diagnostics context, then delete it", async () =>
   await win.getByPlaceholder(/192.168/).fill("192.168.250.250");
   await win.getByRole("button", { name: "Save Server" }).click();
 
-  // Back on Home, the server card is shown.
+  // Back on Home, the server card is shown and can be renamed inline.
   await expect(win.locator(".server-card .name")).toContainText("E2E Server");
+  await win.getByRole("button", { name: "Rename E2E Server" }).click();
+  const serverName = win.getByLabel("Rename E2E Server");
+  await serverName.fill("Lab PVE");
+  await serverName.press("Enter");
+  await expect(win.getByRole("button", { name: /^Lab PVE/ })).toBeVisible();
 
   // Persists after a settings visit.
   await win.getByRole("button", { name: "Settings" }).click();

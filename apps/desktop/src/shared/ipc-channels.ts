@@ -54,6 +54,7 @@ export const INVOKE_CHANNELS = [
 
   "terminalProfiles:list",
   "terminalProfiles:create",
+  "terminalProfiles:update",
   "terminalProfiles:delete",
   "terminal:startLocal",
   "terminal:connect",

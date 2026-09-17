@@ -24,6 +24,10 @@ export interface CreateSshProfileInput {
   rememberCredential?: boolean;
 }
 
+export interface UpdateSshProfileInput {
+  name: string;
+}
+
 export interface SshConnectInput {
   profileId: string;
   credential?: string;

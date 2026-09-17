@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { ConfigStore } from "../storage/config-store";
 import { SecretStore } from "../storage/secret-store";
-import type { CreateSshProfileInput, SshAuthType, SshProfile } from "./ssh-types";
+import type { CreateSshProfileInput, SshAuthType, SshProfile, UpdateSshProfileInput } from "./ssh-types";
 import { ErrorCode } from "../shared/types";
 import { SshError } from "./ssh-error";
 import { logger } from "../shared/logger";
@@ -114,6 +114,19 @@ export class SshProfileManager {
       }
     }
     return this.publicProfile(profile);
+  }
+
+  async update(id: string, input: UpdateSshProfileInput): Promise<SshProfile> {
+    const profiles = await this.storedProfiles();
+    const index = profiles.findIndex((profile) => profile.id === id);
+    if (index === -1) throw new SshError("SSH connection not found.", ErrorCode.PROFILE_ERROR);
+    profiles[index] = {
+      ...profiles[index],
+      name: validateText(input?.name, "Name", 80),
+      updatedAt: new Date().toISOString(),
+    };
+    await this.config.writeJson(SSH_PROFILES_FILE, profiles);
+    return this.publicProfile(profiles[index]);
   }
 
   async getCredential(id: string): Promise<SshCredential | undefined> {

@@ -38,6 +38,7 @@ import type {
   SshDirectConnectInput,
   SshHostKeyDecision,
   SshHostKeyPrompt,
+  UpdateSshProfileInput,
 } from "../ssh/ssh-types";
 import { SshError } from "../ssh/ssh-error";
 
@@ -334,6 +335,9 @@ export function registerIpcHandlers(services: AppServices): void {
   handle("terminalProfiles:list", services, () => services.sshProfiles.list());
   handle("terminalProfiles:create", services, (input) =>
     services.sshProfiles.create(input as CreateSshProfileInput),
+  );
+  handle("terminalProfiles:update", services, (id, input) =>
+    services.sshProfiles.update(String(id), input as UpdateSshProfileInput),
   );
   handle("terminalProfiles:delete", services, async (id) => {
     services.ssh.disconnectProfile(String(id));

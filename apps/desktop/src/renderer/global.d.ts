@@ -25,6 +25,7 @@ import type {
   SshConnectResult,
   SshDirectConnectInput,
   SshProfile,
+  UpdateSshProfileInput,
 } from "../ssh/ssh-types";
 import type { StartLocalTerminalInput, TerminalDirectoryListing, TerminalSessionResult } from "../terminal/terminal-types";
 
@@ -100,6 +101,7 @@ export interface PveBridge {
   terminalProfiles: {
     list: () => Promise<IpcResult<SshProfile[]>>;
     create: (input: CreateSshProfileInput) => Promise<IpcResult<SshProfile>>;
+    update: (id: string, input: UpdateSshProfileInput) => Promise<IpcResult<SshProfile>>;
     delete: (id: string) => Promise<IpcResult<boolean>>;
   };
   terminal: {
