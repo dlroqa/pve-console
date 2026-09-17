@@ -28,6 +28,7 @@ import {
 import type { AppSettings } from "../shared/types";
 import { SshProfileManager } from "../ssh/ssh-profile-manager";
 import { SshService } from "../ssh/ssh-service";
+import { LocalTerminalService } from "../terminal/local-terminal-service";
 
 const SETTINGS_FILE = "settings";
 
@@ -79,6 +80,7 @@ async function bootstrap(): Promise<void> {
   const webContents = new WebContentsManager(sessions, getSettings, emit);
   const sshProfiles = new SshProfileManager(configStore, secrets);
   const ssh = new SshService(sshProfiles, configStore, emit, sshHostPromptBridge.prompt);
+  const localTerminals = new LocalTerminalService(emit);
   promptBridge.setPromptHandler((profileId) =>
     webContents.suspendForCertificatePrompt(profileId),
   );
@@ -96,6 +98,7 @@ async function bootstrap(): Promise<void> {
     ai,
     sshProfiles,
     ssh,
+    localTerminals,
     sshHostPromptBridge,
     getSettings,
     setSettings,
@@ -110,6 +113,7 @@ async function bootstrap(): Promise<void> {
 
   mainWindow.on("closed", () => {
     ssh.disconnectAll();
+    localTerminals.disconnectAll();
     mainWindow = null;
   });
 

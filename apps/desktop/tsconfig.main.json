@@ -26,7 +26,8 @@
     "src/storage",
     "src/shared",
     "src/ai",
-    "src/ssh"
+    "src/ssh",
+    "src/terminal"
   ],
   "exclude": ["src/renderer"]
 }

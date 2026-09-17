@@ -30,6 +30,12 @@ const TerminalWorkspace = lazy(() =>
   })),
 );
 
+interface OpenTerminal {
+  id: string;
+  label: string;
+  profileId?: string;
+}
+
 function applyTheme(theme: AppSettings["theme"]): void {
   const root = document.documentElement;
   const useLight =
@@ -46,8 +52,8 @@ export function App(): JSX.Element {
   const [route, setRoute] = useState<Route>({ name: "home" });
   const [statuses, setStatuses] = useState<StatusMap>({});
   const [terminalStatuses, setTerminalStatuses] = useState<Record<string, SshConnectionStatus>>({});
-  const [openTerminals, setOpenTerminals] = useState<string[]>([]);
-  const [newTerminalProfileId, setNewTerminalProfileId] = useState<string | null>(null);
+  const [openTerminals, setOpenTerminals] = useState<OpenTerminal[]>([]);
+  const terminalNumber = useRef(0);
   const [navByServer, setNavByServer] = useState<Record<string, NavigationState>>({});
   const [crashByServer, setCrashByServer] = useState<Record<string, string>>({});
   const [loadErrorByServer, setLoadErrorByServer] = useState<Record<string, string>>({});
@@ -171,21 +177,34 @@ export function App(): JSX.Element {
         ? route.serverId
         : null;
   const activeProfile = profiles.find((p) => p.id === activeServerId) ?? null;
-  const activeTerminal =
-    route.name === "terminal"
-      ? terminalProfiles.find((profile) => profile.id === route.profileId) ?? null
-      : null;
+  const activeTerminalSession = route.name === "terminal-session"
+    ? openTerminals.find((terminal) => terminal.id === route.terminalId) ?? null
+    : null;
+  const activeTerminal = activeTerminalSession?.profileId
+    ? terminalProfiles.find((profile) => profile.id === activeTerminalSession.profileId) ?? null
+    : null;
 
-  const openTerminal = useCallback((id: string) => {
-    if (id !== newTerminalProfileId) {
-      setOpenTerminals((current) => current.includes(id) ? current : [...current, id]);
+  const openTerminal = useCallback((profileId: string) => {
+    const existing = openTerminals.find((terminal) => terminal.profileId === profileId);
+    if (existing) {
+      setRoute({ name: "terminal-session", terminalId: existing.id });
+      return;
     }
-    setRoute({ name: "terminal", profileId: id });
-  }, [newTerminalProfileId]);
+    const profile = terminalProfiles.find((item) => item.id === profileId);
+    if (!profile) return;
+    const id = window.crypto.randomUUID();
+    setOpenTerminals((current) => [...current, { id, profileId, label: profile.name }]);
+    setRoute({ name: "terminal-session", terminalId: id });
+  }, [openTerminals, terminalProfiles]);
 
   const openNewTerminal = useCallback(() => {
-    setOpenTerminals((current) => current.includes("new") ? current : [...current, "new"]);
-    setRoute({ name: "terminal-new" });
+    terminalNumber.current += 1;
+    const terminal: OpenTerminal = {
+      id: window.crypto.randomUUID(),
+      label: `Terminal ${terminalNumber.current}`,
+    };
+    setOpenTerminals((current) => [...current, terminal]);
+    setRoute({ name: "terminal-session", terminalId: terminal.id });
   }, []);
 
   const handleCertDecision = async (
@@ -239,11 +258,9 @@ export function App(): JSX.Element {
             onCancel={() => setRoute({ name: "home" })}
           />
         );
-      case "terminal-new":
-        return null;
-      case "terminal":
-        return activeTerminal ? null : (
-          <div className="page"><div className="empty">SSH connection not found.</div></div>
+      case "terminal-session":
+        return activeTerminalSession ? null : (
+          <div className="page"><div className="empty">Terminal session not found.</div></div>
         );
       case "diagnostics":
         return <Diagnostics profiles={profiles} initialServerId={route.serverId} />;
@@ -289,9 +306,11 @@ export function App(): JSX.Element {
             activeProfile={route.name === "workspace" ? activeProfile : null}
             status={activeProfile ? (statuses[activeProfile.id] ?? "disconnected") : null}
             activeTerminal={activeTerminal}
-            activeTerminalLabel={route.name === "terminal-new" ? "New SSH terminal" : undefined}
+            activeTerminalLabel={activeTerminalSession?.label}
             terminalStatus={
-              activeTerminal ? (terminalStatuses[activeTerminal.id] ?? "disconnected") : null
+              activeTerminalSession
+                ? (terminalStatuses[activeTerminalSession.profileId ?? activeTerminalSession.id] ?? "disconnected")
+                : null
             }
           />
         }
@@ -304,48 +323,67 @@ export function App(): JSX.Element {
             route={route}
             activeServerId={activeServerId}
             onSelectServer={openServer}
+            openTerminals={openTerminals.map((terminal) => {
+              const profile = terminal.profileId
+                ? terminalProfiles.find((item) => item.id === terminal.profileId)
+                : undefined;
+              return {
+                id: terminal.id,
+                label: profile?.name ?? terminal.label,
+                profileId: terminal.profileId,
+                address: profile
+                  ? `${profile.username}@${profile.host}:${profile.port}`
+                  : undefined,
+                status: terminalStatuses[terminal.profileId ?? terminal.id] ?? "disconnected",
+              };
+            })}
             onSelectTerminal={openTerminal}
+            onSelectOpenTerminal={(id) => setRoute({ name: "terminal-session", terminalId: id })}
             onNavigate={(nextRoute) => {
-              if (nextRoute.name === "terminal-new") openNewTerminal();
-              else setRoute(nextRoute);
+              if (nextRoute.name === "terminal-session" && nextRoute.terminalId === "new") {
+                openNewTerminal();
+              } else {
+                setRoute(nextRoute);
+              }
             }}
           />
         }
       >
         {renderMain()}
-        {openTerminals.map((terminalId) => {
-          const isNew = terminalId === "new";
-          const profileId = isNew ? newTerminalProfileId : terminalId;
-          const savedProfile = !isNew && profileId
-            ? terminalProfiles.find((profile) => profile.id === profileId) ?? null
+        {openTerminals.map((terminal) => {
+          const savedProfile = terminal.profileId
+            ? terminalProfiles.find((profile) => profile.id === terminal.profileId) ?? null
             : null;
-          if (!isNew && !savedProfile) return null;
-          const isActive = isNew
-            ? route.name === "terminal-new" ||
-              (route.name === "terminal" && route.profileId === newTerminalProfileId)
-            : route.name === "terminal" && route.profileId === terminalId;
+          const isActive = route.name === "terminal-session" && route.terminalId === terminal.id;
+          const closeTerminal = () => {
+            setOpenTerminals((current) => current.filter((item) => item.id !== terminal.id));
+            if (isActive) setRoute({ name: "home" });
+          };
           return (
             <div
-              key={terminalId}
+              key={terminal.id}
               className={`persistent-terminal ${isActive ? "active" : ""}`}
               aria-hidden={!isActive}
             >
               <Suspense fallback={<div className="empty">Loading terminal...</div>}>
                 <TerminalWorkspace
                   profile={savedProfile}
+                  targetId={terminal.id}
                   active={isActive}
+                  onClose={closeTerminal}
                   onProfilesChanged={async () => {
                     await refreshTerminalProfiles();
                   }}
-                  onProfileCreated={isNew ? (createdProfile) => {
-                    setNewTerminalProfileId(createdProfile.id);
-                    setRoute({ name: "terminal", profileId: createdProfile.id });
-                  } : undefined}
-                  onDeleted={profileId ? async () => {
-                    setOpenTerminals((current) => current.filter((id) => id !== terminalId));
-                    if (isNew) setNewTerminalProfileId(null);
+                  onProfileCreated={(createdProfile) => {
+                    setOpenTerminals((current) => current.map((item) =>
+                      item.id === terminal.id
+                        ? { ...item, profileId: createdProfile.id, label: createdProfile.name }
+                        : item,
+                    ));
+                  }}
+                  onDeleted={savedProfile ? async () => {
+                    closeTerminal();
                     await refreshTerminalProfiles();
-                    setRoute({ name: "home" });
                   } : undefined}
                 />
               </Suspense>

@@ -31,7 +31,7 @@ export function Topbar({
       <span className="active-server">{description}</span>
       <span className="spacer" />
       {activeProfile && status && <ServerStatus status={status} />}
-      {activeTerminal && terminalStatus && (
+      {(activeTerminal || activeTerminalLabel) && terminalStatus && (
         <span className={`terminal-state ${terminalStatus}`}>{terminalStatus}</span>
       )}
     </header>

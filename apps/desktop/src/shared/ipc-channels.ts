@@ -55,11 +55,13 @@ export const INVOKE_CHANNELS = [
   "terminalProfiles:list",
   "terminalProfiles:create",
   "terminalProfiles:delete",
+  "terminal:startLocal",
   "terminal:connect",
   "terminal:connectDirect",
   "terminal:write",
   "terminal:resize",
   "terminal:disconnect",
+  "terminal:listDirectory",
   "sshHost:respond",
 ] as const;
 

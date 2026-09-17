@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { posix } from "node:path";
 import { Client, type ClientChannel, type ConnectConfig } from "ssh2";
 import { ConfigStore } from "../storage/config-store";
 import type { SshProfileManager } from "./ssh-profile-manager";
@@ -13,6 +14,7 @@ import type {
 } from "./ssh-types";
 import { ErrorCode } from "../shared/types";
 import { SshError } from "./ssh-error";
+import type { TerminalDirectoryListing } from "../terminal/terminal-types";
 
 const KNOWN_HOSTS_FILE = "ssh-known-hosts";
 
@@ -240,6 +242,48 @@ export class SshService {
     const safeCols = Math.max(20, Math.min(500, Math.floor(cols)));
     const safeRows = Math.max(5, Math.min(300, Math.floor(rows)));
     session.stream.setWindow(safeRows, safeCols, 0, 0);
+  }
+
+  async listDirectory(sessionId: string, path?: string): Promise<TerminalDirectoryListing> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new SshError("Remote terminal session is not connected.");
+    const sftp = await new Promise<import("ssh2").SFTPWrapper>((resolve, reject) => {
+      session.client.sftp((error, channel) => error ? reject(error) : resolve(channel));
+    });
+    try {
+      const requestedPath = path || ".";
+      const resolved = await new Promise<string>((resolve, reject) => {
+        sftp.realpath(requestedPath, (error, absolutePath) =>
+          error ? reject(error) : resolve(absolutePath),
+        );
+      });
+      const entries = await new Promise<import("ssh2").FileEntry[]>((resolve, reject) => {
+        sftp.readdir(resolved, (error, list) => error ? reject(error) : resolve(list));
+      });
+      return {
+        path: resolved,
+        parentPath: resolved === "/" ? undefined : posix.dirname(resolved),
+        entries: entries
+          .filter((entry) => entry.filename !== "." && entry.filename !== "..")
+          .map((entry) => ({
+            name: entry.filename,
+            path: posix.join(resolved, entry.filename),
+            kind: (entry.attrs.mode & 0o170000) === 0o040000
+              ? "directory" as const
+              : (entry.attrs.mode & 0o170000) === 0o120000
+                ? "link" as const
+                : "file" as const,
+            hidden: entry.filename.startsWith("."),
+          }))
+          .sort((left, right) => {
+            if (left.kind === "directory" && right.kind !== "directory") return -1;
+            if (left.kind !== "directory" && right.kind === "directory") return 1;
+            return left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
+          }),
+      };
+    } finally {
+      sftp.end();
+    }
   }
 
   disconnect(sessionId: string): void {

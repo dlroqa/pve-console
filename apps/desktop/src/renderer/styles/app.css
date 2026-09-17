@@ -789,3 +789,17 @@ a {
 }
 .ai-usage-indicator.ready { color: var(--text-dim); }
 .ai-pulse { color: var(--accent); font-size: 16px; }
+
+.terminal-toolbar > button.active { border-color: var(--accent); color: var(--accent); }
+.terminal-body { display: flex; flex: 1; min-height: 0; }
+.terminal-explorer { display: flex; flex: 0 0 260px; flex-direction: column; min-width: 180px; max-width: 42%; border-right: 1px solid var(--border); background: #111419; color: var(--text-dim); }
+.terminal-explorer-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; min-height: 40px; padding: 5px 7px; border-bottom: 1px solid var(--border); }
+.terminal-explorer-head span { overflow: hidden; color: var(--text); font-family: ui-monospace, Menlo, monospace; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.terminal-file-list { flex: 1; overflow: auto; padding: 5px; }
+.terminal-file { display: grid; grid-template-columns: 12px 18px minmax(0, 1fr); width: 100%; min-height: 29px; padding: 3px 7px; border: 0; background: transparent; color: var(--text-dim); text-align: left; }
+.terminal-file:disabled { cursor: default; opacity: 1; }
+.terminal-file.directory { color: var(--text); }
+.terminal-file.directory:hover { background: var(--bg-elev-2); }
+.terminal-file span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.terminal-explorer-error { padding: 10px; color: var(--err); font-size: 12px; }
+.terminal-body > .terminal-surface { flex: 1; width: 0; }

@@ -14,10 +14,7 @@ files:
 # Do not sign in CI without credentials; signing/notarization is configured per environment.
 asar: true
 
-# ssh2 has an optional CPU-features accelerator but uses its supported
-# JavaScript fallback when that addon is unavailable. No required production
-# dependency needs an Electron ABI rebuild, so keep packaging reproducible in
-# the npm-workspace layout by skipping native rebuilds.
+# The postinstall hook performs the Electron ABI rebuild once per CI runner.
 npmRebuild: false
 nodeGypRebuild: false
 

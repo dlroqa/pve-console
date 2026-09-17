@@ -30,6 +30,8 @@ import type { AiService } from "../ai/ai-service";
 import type { AiAnalysisKind, AiProvider } from "../ai/ai-types";
 import type { SshProfileManager } from "../ssh/ssh-profile-manager";
 import type { SshService } from "../ssh/ssh-service";
+import type { LocalTerminalService } from "../terminal/local-terminal-service";
+import type { StartLocalTerminalInput } from "../terminal/terminal-types";
 import type {
   CreateSshProfileInput,
   SshConnectInput,
@@ -147,6 +149,7 @@ export interface AppServices {
   ai: AiService;
   sshProfiles: SshProfileManager;
   ssh: SshService;
+  localTerminals: LocalTerminalService;
   sshHostPromptBridge: SshHostKeyPromptBridge;
   getSettings: () => AppSettings;
   setSettings: (s: AppSettings) => Promise<AppSettings>;
@@ -337,6 +340,9 @@ export function registerIpcHandlers(services: AppServices): void {
     await services.sshProfiles.delete(String(id));
     return true;
   });
+  handle("terminal:startLocal", services, (input) =>
+    services.localTerminals.start(input as StartLocalTerminalInput),
+  );
   handle("terminal:connect", services, (input) =>
     services.ssh.connect(input as SshConnectInput),
   );
@@ -344,16 +350,28 @@ export function registerIpcHandlers(services: AppServices): void {
     services.ssh.connectDirect(input as SshDirectConnectInput),
   );
   handle("terminal:write", services, (sessionId, data) => {
-    services.ssh.write(String(sessionId), String(data));
+    const id = String(sessionId);
+    if (services.localTerminals.has(id)) services.localTerminals.write(id, String(data));
+    else services.ssh.write(id, String(data));
     return true;
   });
   handle("terminal:resize", services, (sessionId, cols, rows) => {
-    services.ssh.resize(String(sessionId), Number(cols), Number(rows));
+    const id = String(sessionId);
+    if (services.localTerminals.has(id)) services.localTerminals.resize(id, Number(cols), Number(rows));
+    else services.ssh.resize(id, Number(cols), Number(rows));
     return true;
   });
   handle("terminal:disconnect", services, (sessionId) => {
-    services.ssh.disconnect(String(sessionId));
+    const id = String(sessionId);
+    if (services.localTerminals.has(id)) services.localTerminals.disconnect(id);
+    else services.ssh.disconnect(id);
     return true;
+  });
+  handle("terminal:listDirectory", services, (sessionId, path) => {
+    const id = String(sessionId);
+    return services.localTerminals.has(id)
+      ? services.localTerminals.listDirectory(path == null ? undefined : String(path))
+      : services.ssh.listDirectory(id, path == null ? undefined : String(path));
   });
   handle("sshHost:respond", services, (requestId, decision) => {
     services.sshHostPromptBridge.resolve(String(requestId), decision as SshHostKeyDecision);

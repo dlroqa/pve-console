@@ -26,6 +26,7 @@ import type {
   SshDirectConnectInput,
   SshProfile,
 } from "../ssh/ssh-types";
+import type { StartLocalTerminalInput, TerminalDirectoryListing, TerminalSessionResult } from "../terminal/terminal-types";
 
 export interface AppInfo {
   name: string;
@@ -102,11 +103,13 @@ export interface PveBridge {
     delete: (id: string) => Promise<IpcResult<boolean>>;
   };
   terminal: {
+    startLocal: (input: StartLocalTerminalInput) => Promise<IpcResult<TerminalSessionResult>>;
     connect: (input: SshConnectInput) => Promise<IpcResult<SshConnectResult>>;
     connectDirect: (input: SshDirectConnectInput) => Promise<IpcResult<SshConnectResult>>;
     write: (sessionId: string, data: string) => Promise<IpcResult<boolean>>;
     resize: (sessionId: string, cols: number, rows: number) => Promise<IpcResult<boolean>>;
     disconnect: (sessionId: string) => Promise<IpcResult<boolean>>;
+    listDirectory: (sessionId: string, path?: string) => Promise<IpcResult<TerminalDirectoryListing>>;
     respondToHostKey: (requestId: string, decision: string) => Promise<IpcResult<boolean>>;
   };
   on: (channel: string, listener: (payload: unknown) => void) => () => void;

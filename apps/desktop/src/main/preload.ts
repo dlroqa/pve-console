@@ -98,6 +98,7 @@ const api = {
     delete: (id: string) => ipcRenderer.invoke("terminalProfiles:delete", id),
   },
   terminal: {
+    startLocal: (input: unknown) => ipcRenderer.invoke("terminal:startLocal", input),
     connect: (input: unknown) => ipcRenderer.invoke("terminal:connect", input),
     connectDirect: (input: unknown) => ipcRenderer.invoke("terminal:connectDirect", input),
     write: (sessionId: string, data: string) =>
@@ -105,6 +106,8 @@ const api = {
     resize: (sessionId: string, cols: number, rows: number) =>
       ipcRenderer.invoke("terminal:resize", sessionId, cols, rows),
     disconnect: (sessionId: string) => ipcRenderer.invoke("terminal:disconnect", sessionId),
+    listDirectory: (sessionId: string, path?: string) =>
+      ipcRenderer.invoke("terminal:listDirectory", sessionId, path),
     respondToHostKey: (requestId: string, decision: string) =>
       ipcRenderer.invoke("sshHost:respond", requestId, decision),
   },
