@@ -9,6 +9,8 @@ interface Props {
   profile?: SshProfile | null;
   onDeleted?: () => Promise<void>;
   onProfilesChanged?: () => Promise<void>;
+  onProfileCreated?: (profile: SshProfile) => void;
+  active?: boolean;
 }
 
 interface TerminalDataEvent {
@@ -33,7 +35,13 @@ function defaultName(username: string, host: string): string {
   return user && target ? `${user}@${target}` : "SSH terminal";
 }
 
-export function TerminalWorkspace({ profile, onDeleted, onProfilesChanged }: Props): JSX.Element {
+export function TerminalWorkspace({
+  profile,
+  onDeleted,
+  onProfilesChanged,
+  onProfileCreated,
+  active = true,
+}: Props): JSX.Element {
   const mountRef = useRef<HTMLDivElement>(null);
   const hostInputRef = useRef<HTMLInputElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -52,6 +60,7 @@ export function TerminalWorkspace({ profile, onDeleted, onProfilesChanged }: Pro
   const [saveConnection, setSaveConnection] = useState(false);
   const [status, setStatus] = useState<SshConnectionStatus>("disconnected");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -60,6 +69,7 @@ export function TerminalWorkspace({ profile, onDeleted, onProfilesChanged }: Pro
     activeTargetIdRef.current = profile?.id ?? directTargetIdRef.current;
     setStatus("disconnected");
     setError(null);
+    setNotice(null);
   }, [profile]);
 
   const resize = useCallback(() => {
@@ -133,6 +143,15 @@ export function TerminalWorkspace({ profile, onDeleted, onProfilesChanged }: Pro
     };
   }, [resize]);
 
+  useEffect(() => {
+    if (!active) return;
+    const frame = window.requestAnimationFrame(() => {
+      resize();
+      terminalRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [active, resize]);
+
   const readPrivateKey = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) setCredential(await file.text());
@@ -142,6 +161,7 @@ export function TerminalWorkspace({ profile, onDeleted, onProfilesChanged }: Pro
     const terminal = terminalRef.current;
     if (!terminal) return;
     setError(null);
+    setNotice(null);
     setStatus("connecting");
     terminal.writeln("\r\n\x1b[90m[Connecting...]\x1b[0m");
     resize();
@@ -173,9 +193,15 @@ export function TerminalWorkspace({ profile, onDeleted, onProfilesChanged }: Pro
         setCurrentProfile(saved);
         activeTargetIdRef.current = saved.id;
         await onProfilesChanged?.();
+        onProfileCreated?.(saved);
+        if (!saved.hasCredential) {
+          setNotice("Connection settings were saved. Enter the password again next time because secure credential storage is unavailable.");
+        }
         result = await unwrap(
           window.pve.terminal.connect({
             profileId: saved.id,
+            credential: saved.hasCredential ? undefined : credential,
+            passphrase: saved.hasCredential ? undefined : passphrase || undefined,
             cols: terminal.cols,
             rows: terminal.rows,
           }),
@@ -381,6 +407,7 @@ export function TerminalWorkspace({ profile, onDeleted, onProfilesChanged }: Pro
           <span>Credential is used for this session only.</span>
         </div>
       )}
+      {notice && <div className="terminal-notice">{notice}</div>}
       {error && <div className="terminal-error">{error}</div>}
       <div className="terminal-surface" ref={mountRef} />
 

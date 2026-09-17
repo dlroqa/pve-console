@@ -531,6 +531,15 @@ a {
   text-align: center;
 }
 
+.persistent-terminal {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+.persistent-terminal.active {
+  display: block;
+}
+
 /* ---- SSH terminal ---- */
 .terminal-workspace {
   position: absolute;
@@ -625,6 +634,12 @@ a {
   gap: 8px;
   color: var(--text-dim);
   white-space: nowrap;
+}
+.terminal-notice {
+  padding: 8px 12px;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, var(--bg));
+  border-bottom: 1px solid var(--warn);
 }
 .terminal-error {
   padding: 8px 12px;
@@ -755,3 +770,22 @@ a {
   padding: 14px 16px;
   color: var(--text);
 }
+
+.ai-usage-indicator {
+  position: fixed;
+  right: 14px;
+  bottom: 10px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  background: color-mix(in srgb, var(--bg-elev) 92%, transparent);
+  font-size: 11px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.22);
+}
+.ai-usage-indicator.ready { color: var(--text-dim); }
+.ai-pulse { color: var(--accent); font-size: 16px; }

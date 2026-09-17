@@ -25,7 +25,6 @@
     "package:dist": "electron-builder --config electron-builder.yml --publish never"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.71.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "react": "^18.3.1",

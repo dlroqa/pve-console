@@ -14,6 +14,7 @@ import { Topbar } from "./components/Topbar";
 import { Sidebar } from "./components/Sidebar";
 import { CertificateDialog } from "./components/CertificateDialog";
 import { SshHostKeyDialog } from "./components/SshHostKeyDialog";
+import { AiUsageIndicator } from "./components/AiUsageIndicator";
 import { Home } from "./pages/Home";
 import { AddServer } from "./pages/AddServer";
 import { EditServer } from "./pages/EditServer";
@@ -45,6 +46,8 @@ export function App(): JSX.Element {
   const [route, setRoute] = useState<Route>({ name: "home" });
   const [statuses, setStatuses] = useState<StatusMap>({});
   const [terminalStatuses, setTerminalStatuses] = useState<Record<string, SshConnectionStatus>>({});
+  const [openTerminals, setOpenTerminals] = useState<string[]>([]);
+  const [newTerminalProfileId, setNewTerminalProfileId] = useState<string | null>(null);
   const [navByServer, setNavByServer] = useState<Record<string, NavigationState>>({});
   const [crashByServer, setCrashByServer] = useState<Record<string, string>>({});
   const [loadErrorByServer, setLoadErrorByServer] = useState<Record<string, string>>({});
@@ -173,6 +176,18 @@ export function App(): JSX.Element {
       ? terminalProfiles.find((profile) => profile.id === route.profileId) ?? null
       : null;
 
+  const openTerminal = useCallback((id: string) => {
+    if (id !== newTerminalProfileId) {
+      setOpenTerminals((current) => current.includes(id) ? current : [...current, id]);
+    }
+    setRoute({ name: "terminal", profileId: id });
+  }, [newTerminalProfileId]);
+
+  const openNewTerminal = useCallback(() => {
+    setOpenTerminals((current) => current.includes("new") ? current : [...current, "new"]);
+    setRoute({ name: "terminal-new" });
+  }, []);
+
   const handleCertDecision = async (
     decision: "cancel" | "trust-once" | "trust-and-pin" | "replace-pin",
   ) => {
@@ -225,34 +240,10 @@ export function App(): JSX.Element {
           />
         );
       case "terminal-new":
-        return (
-          <Suspense fallback={<div className="empty">Loading terminal...</div>}>
-            <TerminalWorkspace
-              key="terminal-new"
-              onProfilesChanged={async () => {
-                await refreshTerminalProfiles();
-              }}
-            />
-          </Suspense>
-        );
+        return null;
       case "terminal":
-        if (!activeTerminal) {
-          return <div className="page"><div className="empty">SSH connection not found.</div></div>;
-        }
-        return (
-          <Suspense fallback={<div className="empty">Loading terminal…</div>}>
-            <TerminalWorkspace
-              key={activeTerminal.id}
-              profile={activeTerminal}
-              onProfilesChanged={async () => {
-                await refreshTerminalProfiles();
-              }}
-              onDeleted={async () => {
-                await refreshTerminalProfiles();
-                setRoute({ name: "home" });
-              }}
-            />
-          </Suspense>
+        return activeTerminal ? null : (
+          <div className="page"><div className="empty">SSH connection not found.</div></div>
         );
       case "diagnostics":
         return <Diagnostics profiles={profiles} initialServerId={route.serverId} />;
@@ -313,14 +304,57 @@ export function App(): JSX.Element {
             route={route}
             activeServerId={activeServerId}
             onSelectServer={openServer}
-            onSelectTerminal={(id) => setRoute({ name: "terminal", profileId: id })}
-            onNavigate={setRoute}
+            onSelectTerminal={openTerminal}
+            onNavigate={(nextRoute) => {
+              if (nextRoute.name === "terminal-new") openNewTerminal();
+              else setRoute(nextRoute);
+            }}
           />
         }
       >
         {renderMain()}
+        {openTerminals.map((terminalId) => {
+          const isNew = terminalId === "new";
+          const profileId = isNew ? newTerminalProfileId : terminalId;
+          const savedProfile = !isNew && profileId
+            ? terminalProfiles.find((profile) => profile.id === profileId) ?? null
+            : null;
+          if (!isNew && !savedProfile) return null;
+          const isActive = isNew
+            ? route.name === "terminal-new" ||
+              (route.name === "terminal" && route.profileId === newTerminalProfileId)
+            : route.name === "terminal" && route.profileId === terminalId;
+          return (
+            <div
+              key={terminalId}
+              className={`persistent-terminal ${isActive ? "active" : ""}`}
+              aria-hidden={!isActive}
+            >
+              <Suspense fallback={<div className="empty">Loading terminal...</div>}>
+                <TerminalWorkspace
+                  profile={savedProfile}
+                  active={isActive}
+                  onProfilesChanged={async () => {
+                    await refreshTerminalProfiles();
+                  }}
+                  onProfileCreated={isNew ? (createdProfile) => {
+                    setNewTerminalProfileId(createdProfile.id);
+                    setRoute({ name: "terminal", profileId: createdProfile.id });
+                  } : undefined}
+                  onDeleted={profileId ? async () => {
+                    setOpenTerminals((current) => current.filter((id) => id !== terminalId));
+                    if (isNew) setNewTerminalProfileId(null);
+                    await refreshTerminalProfiles();
+                    setRoute({ name: "home" });
+                  } : undefined}
+                />
+              </Suspense>
+            </div>
+          );
+        })}
       </AppShell>
 
+      <AiUsageIndicator />
       {certPrompt && <CertificateDialog prompt={certPrompt} onDecide={handleCertDecision} />}
       {sshHostPrompt && (
         <SshHostKeyDialog prompt={sshHostPrompt} onDecide={handleSshHostDecision} />

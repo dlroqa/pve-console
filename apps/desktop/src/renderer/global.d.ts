@@ -93,10 +93,7 @@ export interface PveBridge {
     setConfig: (input: {
       provider: AiProvider;
       model?: string;
-      baseUrl?: string;
     }) => Promise<IpcResult<AiStatus>>;
-    setApiKey: (provider: AiProvider, key: string) => Promise<IpcResult<boolean>>;
-    removeApiKey: (provider: AiProvider) => Promise<IpcResult<boolean>>;
     analyze: (profileId: string, kind: string, input?: string) => Promise<IpcResult<AiAnalysisResult>>;
   };
   terminalProfiles: {

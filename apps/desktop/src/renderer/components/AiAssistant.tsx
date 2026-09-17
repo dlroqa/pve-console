@@ -38,6 +38,7 @@ export function AiAssistant({ profileId, onOpenSettings }: Props): JSX.Element {
     try {
       const r = await unwrap(window.pve.ai.analyze(profileId, kind, input));
       setResult(r);
+      window.dispatchEvent(new Event("pve:ai-usage"));
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -49,7 +50,7 @@ export function AiAssistant({ profileId, onOpenSettings }: Props): JSX.Element {
     return (
       <div className="card" style={{ maxWidth: 680, marginTop: 12 }}>
         <div style={{ color: "var(--text-dim)" }}>
-          The optional AI assistant is not configured. Add an Anthropic API key in Settings to enable
+          The optional AI assistant is not configured. Sign in through the official CLI from Settings to enable
           health summaries and troubleshooting help.
         </div>
         <div style={{ marginTop: 12 }}>
@@ -63,7 +64,7 @@ export function AiAssistant({ profileId, onOpenSettings }: Props): JSX.Element {
     <div className="card" style={{ maxWidth: 680, marginTop: 12 }}>
       <div className="banner info" style={{ marginTop: 0 }}>
         Advisory only. The assistant analyzes read-only cluster data and suggests actions — it never
-        performs them. Requests go to {status?.provider} ({status?.model}).
+        performs them. Requests use the official {status?.provider === "openai" ? "Codex" : "Claude Code"} CLI ({status?.model}).
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

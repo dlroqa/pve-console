@@ -50,9 +50,21 @@ test("app launches and renders the shell", async () => {
   await expect(win.locator(".brand")).toHaveText("PVE Console");
   await expect(win.locator(".section-label", { hasText: "Terminal" })).toBeVisible();
   await expect(win.getByRole("button", { name: "+ Terminal" })).toBeVisible();
+  await expect(win.locator(".ai-usage-indicator")).toBeVisible();
   await win.getByRole("button", { name: "+ Terminal" }).click();
   await expect(win.getByLabel("SSH host")).toBeVisible();
   await expect(win.locator(".terminal-surface")).toBeVisible();
+});
+
+test("terminal workspace remains mounted while navigating", async () => {
+  const host = win.getByLabel("SSH host");
+  await host.fill("10.10.1.209");
+
+  await win.getByRole("button", { name: "Settings" }).click();
+  await expect(win.locator("h1")).toHaveText("Settings");
+
+  await win.getByRole("button", { name: "+ Terminal" }).click();
+  await expect(win.getByLabel("SSH host")).toHaveValue("10.10.1.209");
 });
 
 test("certificate fingerprint stays inside its card at minimum window width", async () => {

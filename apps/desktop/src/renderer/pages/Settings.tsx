@@ -18,8 +18,6 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [aiProvider, setAiProvider] = useState<AiProvider>("anthropic");
   const [aiModel, setAiModel] = useState("");
-  const [aiBaseUrl, setAiBaseUrl] = useState("");
-  const [aiKey, setAiKey] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,8 +52,7 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
   const applyAiStatus = (s: AiStatus) => {
     setAiStatus(s);
     setAiProvider(s.provider);
-    setAiModel(s.model);
-    setAiBaseUrl(s.baseUrl ?? "");
+    setAiModel(s.model === "Account default" ? "" : s.model);
   };
 
   useEffect(() => {
@@ -67,7 +64,7 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
   const changeProvider = async (provider: AiProvider) => {
     setAiProvider(provider);
     try {
-      // Switch active provider; the stored per-provider model/base URL come back.
+      // Switch active provider; its optional model preference comes back.
       applyAiStatus(await unwrap(window.pve.ai.setConfig({ provider })));
     } catch (e) {
       setError(errorMessage(e));
@@ -80,39 +77,10 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
         window.pve.ai.setConfig({
           provider: aiProvider,
           model: aiModel,
-          baseUrl: aiProvider === "openai" ? aiBaseUrl : undefined,
         }),
       );
       applyAiStatus(s);
       setNotice("AI settings saved.");
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  };
-
-  const saveAiKey = async () => {
-    try {
-      await unwrap(
-        window.pve.ai.setConfig({
-          provider: aiProvider,
-          model: aiModel,
-          baseUrl: aiProvider === "openai" ? aiBaseUrl : undefined,
-        }),
-      );
-      await unwrap(window.pve.ai.setApiKey(aiProvider, aiKey.trim()));
-      setAiKey("");
-      setNotice("AI assistant enabled. Its analysis is advisory only.");
-      applyAiStatus(await unwrap(window.pve.ai.getStatus()));
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  };
-
-  const removeAiKey = async () => {
-    try {
-      await unwrap(window.pve.ai.removeApiKey(aiProvider));
-      setNotice("AI assistant key removed for this provider.");
-      applyAiStatus(await unwrap(window.pve.ai.getStatus()));
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -293,72 +261,35 @@ export function Settings({ settings, profiles, onSettingsChange }: Props): JSX.E
         </div>
       )}
 
-      <h2 style={{ fontSize: 16, marginTop: 30 }}>AI Assistant (optional)</h2>
+      <h2 style={{ fontSize: 16, marginTop: 30 }}>AI Assistant (subscription)</h2>
       <div className="banner info">
-        Advisory only. When enabled, the assistant sends read-only cluster summaries to the selected
-        provider for analysis and never performs actions. The API key is stored encrypted.
+        Uses your official Claude Code or Codex CLI login. PVE Console sends only the authorized
+        read-only cluster summary or log text. The local five-hour counter covers this app only.
       </div>
       <div className="card" style={{ maxWidth: 520 }}>
         <div className="inline-row">
           <div className="field">
             <label>Provider</label>
             <select value={aiProvider} onChange={(e) => changeProvider(e.target.value as AiProvider)}>
-              <option value="anthropic">Anthropic (Claude)</option>
-              <option value="openai">OpenAI-compatible</option>
+              <option value="anthropic">Claude subscription</option>
+              <option value="openai">ChatGPT subscription (Codex)</option>
             </select>
           </div>
           <div className="field">
-            <label>Model</label>
-            <input
-              value={aiModel}
-              onChange={(e) => setAiModel(e.target.value)}
-              placeholder={aiProvider === "openai" ? "gpt-4o" : "claude-opus-5"}
-            />
+            <label>Model override (optional)</label>
+            <input value={aiModel} onChange={(e) => setAiModel(e.target.value)} placeholder="Account default" />
           </div>
         </div>
-
-        {aiProvider === "openai" && (
-          <div className="field" style={{ marginTop: 12 }}>
-            <label>Base URL</label>
-            <input
-              value={aiBaseUrl}
-              onChange={(e) => setAiBaseUrl(e.target.value)}
-              placeholder="https://api.openai.com/v1"
-            />
-            <div className="hint">
-              Any OpenAI-compatible /chat/completions endpoint (OpenAI, gateways, local models).
-            </div>
-          </div>
-        )}
-
-        <div className="field" style={{ marginTop: 12 }}>
-          <label>{aiStatus?.configured ? "Replace API key" : "API key"}</label>
-          <input
-            type="password"
-            value={aiKey}
-            onChange={(e) => setAiKey(e.target.value)}
-            placeholder={
-              aiProvider === "openai" ? "sk-…  (stored encrypted)" : "sk-ant-…  (stored encrypted)"
-            }
-            autoComplete="off"
-          />
-        </div>
-
         <div className="form-actions" style={{ marginTop: 12 }}>
-          <button onClick={saveAiConfig}>Save settings</button>
-          <button className="primary" onClick={saveAiKey} disabled={aiKey.trim().length < 8}>
-            {aiStatus?.configured ? "Update key" : "Enable Assistant"}
-          </button>
-          {aiStatus?.configured && (
-            <button className="danger" onClick={removeAiKey}>
-              Remove key
-            </button>
-          )}
+          <button className="primary" onClick={saveAiConfig}>Save settings</button>
+          <button onClick={() => { void unwrap(window.pve.ai.getStatus()).then(applyAiStatus); }}>Refresh status</button>
         </div>
-        <div style={{ color: "var(--text-faint)", fontSize: 12, marginTop: 8 }}>
-          {aiStatus?.configured
-            ? `Enabled — ${aiProvider} · ${aiStatus.model}`
-            : "Not enabled for this provider."}
+        <div style={{ color: "var(--text-dim)", fontSize: 12, marginTop: 10 }}>
+          {aiStatus?.cliInstalled
+            ? aiStatus.configured
+              ? `Ready — ${aiStatus.authMessage}`
+              : `Sign in first from a terminal with ${aiProvider === "openai" ? "codex login" : "claude auth login"}.`
+            : `Install the official ${aiProvider === "openai" ? "Codex" : "Claude Code"} CLI first.`}
         </div>
       </div>
 

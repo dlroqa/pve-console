@@ -50,8 +50,6 @@ export const INVOKE_CHANNELS = [
 
   "ai:getStatus",
   "ai:setConfig",
-  "ai:setApiKey",
-  "ai:removeApiKey",
   "ai:analyze",
 
   "terminalProfiles:list",

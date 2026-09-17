@@ -62,7 +62,7 @@ async function bootstrap(): Promise<void> {
   const certificates = new CertificateManager(configStore);
   const secrets = new SecretStore(app.getPath("userData"));
   const proxmox = new ProxmoxService(profiles, certificates, secrets, configStore);
-  const ai = new AiService(secrets, configStore, proxmox);
+  const ai = new AiService(configStore, proxmox);
   const promptBridge = new CertificatePromptBridge();
   const sshHostPromptBridge = new SshHostKeyPromptBridge();
 

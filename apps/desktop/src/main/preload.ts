@@ -87,10 +87,8 @@ const api = {
   },
   ai: {
     getStatus: () => ipcRenderer.invoke("ai:getStatus"),
-    setConfig: (input: { provider: string; model?: string; baseUrl?: string }) =>
+    setConfig: (input: { provider: string; model?: string }) =>
       ipcRenderer.invoke("ai:setConfig", input),
-    setApiKey: (provider: string, key: string) => ipcRenderer.invoke("ai:setApiKey", provider, key),
-    removeApiKey: (provider: string) => ipcRenderer.invoke("ai:removeApiKey", provider),
     analyze: (profileId: string, kind: string, input?: string) =>
       ipcRenderer.invoke("ai:analyze", profileId, kind, input),
   },

@@ -4,6 +4,7 @@ import { SecretStore } from "../storage/secret-store";
 import type { CreateSshProfileInput, SshAuthType, SshProfile } from "./ssh-types";
 import { ErrorCode } from "../shared/types";
 import { SshError } from "./ssh-error";
+import { logger } from "../shared/logger";
 
 const SSH_PROFILES_FILE = "ssh-profiles";
 const SSH_SECRET_PREFIX = "ssh:";
@@ -93,19 +94,24 @@ export class SshProfileManager {
 
     const profiles = await this.storedProfiles();
     profiles.push(profile);
+    await this.config.writeJson(SSH_PROFILES_FILE, profiles);
+
     if (input.rememberCredential && credential) {
-      await this.secrets.setSecret(
-        this.secretKey(profile.id),
-        JSON.stringify({ credential, passphrase: input.passphrase || undefined }),
-      );
-    }
-    try {
-      await this.config.writeJson(SSH_PROFILES_FILE, profiles);
-    } catch (error) {
-      if (input.rememberCredential && credential) {
-        await this.secrets.deleteSecret(this.secretKey(profile.id));
+      try {
+        await this.secrets.setSecret(
+          this.secretKey(profile.id),
+          JSON.stringify({ credential, passphrase: input.passphrase || undefined }),
+        );
+      } catch (error) {
+        logger.warn({
+          module: "ssh-profile-manager",
+          event: "credential-not-saved",
+          detail: {
+            profileId: profile.id,
+            message: error instanceof Error ? error.message : "Credential encryption failed.",
+          },
+        });
       }
-      throw error;
     }
     return this.publicProfile(profile);
   }

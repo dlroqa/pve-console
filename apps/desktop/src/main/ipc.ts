@@ -321,16 +321,8 @@ export function registerIpcHandlers(services: AppServices): void {
   // Advisory only: analysis/recommendations; never executes actions (spec §12).
   handle("ai:getStatus", services, () => services.ai.getStatus());
   handle("ai:setConfig", services, (input) =>
-    services.ai.setConfig(input as { provider: AiProvider; model?: string; baseUrl?: string }),
+    services.ai.setConfig(input as { provider: AiProvider; model?: string }),
   );
-  handle("ai:setApiKey", services, async (provider, key) => {
-    await services.ai.setApiKey(provider as AiProvider, String(key));
-    return true;
-  });
-  handle("ai:removeApiKey", services, async (provider) => {
-    await services.ai.removeApiKey(provider as AiProvider);
-    return true;
-  });
   handle("ai:analyze", services, (profileId, kind, input) =>
     services.ai.analyze(String(profileId), kind as AiAnalysisKind, input == null ? undefined : String(input)),
   );
