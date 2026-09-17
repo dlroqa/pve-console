@@ -13,6 +13,7 @@ describe("IPC allowlist (spec §6.2)", () => {
     expect(isInvokeChannel("certificate:respond")).toBe(true);
     expect(isInvokeChannel("terminal:connect")).toBe(true);
     expect(isInvokeChannel("terminal:write")).toBe(true);
+    expect(isInvokeChannel("system:openExternalUrl")).toBe(true);
   });
 
   it("rejects unapproved / generic channels", () => {

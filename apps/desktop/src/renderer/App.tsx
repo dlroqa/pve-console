@@ -35,6 +35,8 @@ interface OpenTerminal {
   profileId?: string;
 }
 
+const SIDEBAR_OPEN_KEY = "pve-console.sidebar.open";
+
 function applyTheme(theme: AppSettings["theme"]): void {
   const root = document.documentElement;
   const useLight =
@@ -52,6 +54,9 @@ export function App(): JSX.Element {
   const [statuses, setStatuses] = useState<StatusMap>({});
   const [terminalStatuses, setTerminalStatuses] = useState<Record<string, SshConnectionStatus>>({});
   const [openTerminals, setOpenTerminals] = useState<OpenTerminal[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => localStorage.getItem(SIDEBAR_OPEN_KEY) !== "false",
+  );
   const terminalNumber = useRef(0);
   const [navByServer, setNavByServer] = useState<Record<string, NavigationState>>({});
   const [crashByServer, setCrashByServer] = useState<Record<string, string>>({});
@@ -323,6 +328,7 @@ export function App(): JSX.Element {
   return (
     <>
       <AppShell
+        sidebarOpen={sidebarOpen}
         topbar={
           <Topbar
             activeProfile={route.name === "workspace" ? activeProfile : null}
@@ -334,6 +340,13 @@ export function App(): JSX.Element {
                 ? (terminalStatuses[activeTerminalSession.profileId ?? activeTerminalSession.id] ?? "disconnected")
                 : null
             }
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={() => {
+              setSidebarOpen((current) => {
+                localStorage.setItem(SIDEBAR_OPEN_KEY, String(!current));
+                return !current;
+              });
+            }}
           />
         }
         sidebar={

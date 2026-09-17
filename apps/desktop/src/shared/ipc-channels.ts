@@ -34,6 +34,7 @@ export const INVOKE_CHANNELS = [
 
   "system:chooseDownloadDirectory",
   "system:appInfo",
+  "system:openExternalUrl",
 
   "proxmox:getTokenStatus",
   "proxmox:setToken",

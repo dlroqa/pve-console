@@ -7,7 +7,7 @@
  * diagnostics are enabled.
  */
 
-import { ipcMain, dialog, app, type BrowserWindow } from "electron";
+import { ipcMain, dialog, app, shell, type BrowserWindow } from "electron";
 import { randomUUID } from "node:crypto";
 import { INVOKE_CHANNELS, type InvokeChannel } from "../shared/ipc-channels";
 import { ErrorCode, type AppError, type AppSettings, type IpcResult } from "../shared/types";
@@ -41,6 +41,7 @@ import type {
   UpdateSshProfileInput,
 } from "../ssh/ssh-types";
 import { SshError } from "../ssh/ssh-error";
+import { normalizeExternalHttpUrl } from "./external-url";
 
 /**
  * Bridges an async certificate decision from the renderer back to the
@@ -392,6 +393,11 @@ export function registerIpcHandlers(services: AppServices): void {
     version: app.getVersion(),
     platform: process.platform,
   }));
+  handle("system:openExternalUrl", services, async (value) => {
+    const url = normalizeExternalHttpUrl(value);
+    await shell.openExternal(url);
+    return true;
+  });
 
   // Log the active allowlist once, for auditability.
   logger.info({

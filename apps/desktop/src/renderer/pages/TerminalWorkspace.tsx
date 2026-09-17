@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import type { SshConnectionStatus, SshProfile } from "../../ssh/ssh-types";
 import type {
   TerminalDirectoryListing,
@@ -9,6 +10,12 @@ import type {
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { errorMessage, unwrap } from "../ipc";
 import { parseSshCommand, pathFromOsc, quoteShellPath, type ParsedSshTarget } from "../terminal-command";
+import {
+  shouldOpenTerminalLink,
+  terminalLinkHint,
+  terminalLinkPlatform,
+  type TerminalLinkPlatform,
+} from "../terminal-links";
 
 interface Props {
   profile?: SshProfile | null;
@@ -50,6 +57,7 @@ export function TerminalWorkspace({
   const pathRef = useRef("");
   const reconnectLocalRef = useRef(true);
   const startedRef = useRef(false);
+  const linkPlatformRef = useRef<TerminalLinkPlatform>("other");
   const initialProfileRef = useRef(profile);
   const onProfilesChangedRef = useRef(onProfilesChanged);
   const onProfileCreatedRef = useRef(onProfileCreated);
@@ -70,6 +78,7 @@ export function TerminalWorkspace({
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [linkHint, setLinkHint] = useState<string | null>(null);
 
   const refreshDirectory = useCallback(async (nextPath?: string) => {
     const sessionId = sessionRef.current;
@@ -216,11 +225,28 @@ export function TerminalWorkspace({
       },
     });
     const fit = new FitAddon();
+    const webLinks = new WebLinksAddon(
+      (event, uri) => {
+        if (!shouldOpenTerminalLink(event, linkPlatformRef.current)) return;
+        void window.pve.system.openExternalUrl(uri).then((result) => {
+          if (!result.ok) setError(result.error.message);
+        });
+      },
+      {
+        hover: () => setLinkHint(terminalLinkHint(linkPlatformRef.current)),
+        leave: () => setLinkHint(null),
+      },
+    );
     terminal.loadAddon(fit);
+    terminal.loadAddon(webLinks);
     terminal.open(mount);
     terminalRef.current = terminal;
     fitRef.current = fit;
     fit.fit();
+
+    void window.pve.system.appInfo().then((result) => {
+      if (result.ok) linkPlatformRef.current = terminalLinkPlatform(result.value.platform);
+    });
 
     const oscDisposable = terminal.parser.registerOscHandler(7, (value) => {
       const nextPath = pathFromOsc(value);
@@ -453,6 +479,7 @@ export function TerminalWorkspace({
           </aside>
         )}
         <div className="terminal-surface" ref={mountRef} />
+        {linkHint && <div className="terminal-link-hint" role="status">{linkHint}</div>}
       </div>
 
       {confirmDelete && profile && (

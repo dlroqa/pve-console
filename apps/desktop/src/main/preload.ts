@@ -64,6 +64,7 @@ const api = {
   system: {
     chooseDownloadDirectory: () => ipcRenderer.invoke("system:chooseDownloadDirectory"),
     appInfo: () => ipcRenderer.invoke("system:appInfo"),
+    openExternalUrl: (url: string) => ipcRenderer.invoke("system:openExternalUrl", url),
   },
   proxmox: {
     getTokenStatus: (id: string) => ipcRenderer.invoke("proxmox:getTokenStatus", id),

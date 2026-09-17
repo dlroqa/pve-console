@@ -51,6 +51,15 @@ test.afterAll(async () => {
 test("app launches and renders the shell", async () => {
   await expect(win.locator(".brand")).toHaveText("PVE Console");
   await expect(win.locator(".section-label", { hasText: "Terminal" })).toBeVisible();
+  const sidebarToggle = win.getByRole("button", { name: "Hide navigation sidebar" });
+  const widthWithSidebar = await win.locator("main").evaluate((main) => main.getBoundingClientRect().width);
+  await sidebarToggle.click();
+  await expect(win.locator("#primary-sidebar")).toHaveCount(0);
+  await expect(win.getByRole("button", { name: "Show navigation sidebar" })).toHaveAttribute("aria-expanded", "false");
+  const widthWithoutSidebar = await win.locator("main").evaluate((main) => main.getBoundingClientRect().width);
+  expect(widthWithoutSidebar).toBeGreaterThan(widthWithSidebar);
+  await win.getByRole("button", { name: "Show navigation sidebar" }).click();
+  await expect(win.locator("#primary-sidebar")).toBeVisible();
   await expect(win.getByRole("button", { name: "+ Terminal" })).toBeVisible();
   const usage = win.locator(".ai-usage-indicator");
   await expect(usage).toBeVisible();

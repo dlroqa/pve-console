@@ -158,7 +158,7 @@ export function Sidebar({
   const savedProfiles = terminalProfiles.filter((profile) => !openProfileIds.has(profile.id));
 
   return (
-    <nav className="sidebar">
+    <nav className="sidebar" id="primary-sidebar" aria-label="Servers and terminals">
       <div className="section-label">Servers</div>
       {profiles.length === 0 && <div className="sidebar-empty">No servers yet.</div>}
       {profiles.map((profile) => (

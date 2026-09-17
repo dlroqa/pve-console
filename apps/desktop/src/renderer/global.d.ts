@@ -69,6 +69,7 @@ export interface PveBridge {
   system: {
     chooseDownloadDirectory: () => Promise<IpcResult<string | undefined>>;
     appInfo: () => Promise<IpcResult<AppInfo>>;
+    openExternalUrl: (url: string) => Promise<IpcResult<boolean>>;
   };
   proxmox: {
     getTokenStatus: (id: string) => Promise<IpcResult<ApiTokenStatus>>;

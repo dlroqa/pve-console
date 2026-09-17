@@ -10,6 +10,8 @@ interface Props {
   activeTerminal?: SshProfile | null;
   activeTerminalLabel?: string;
   terminalStatus?: SshConnectionStatus | null;
+  sidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }
 
 export function Topbar({
@@ -18,6 +20,8 @@ export function Topbar({
   activeTerminal,
   activeTerminalLabel,
   terminalStatus,
+  sidebarOpen,
+  onToggleSidebar,
 }: Props): JSX.Element {
   const description = activeProfile
     ? `${activeProfile.name} · ${activeProfile.host}:${activeProfile.port}`
@@ -28,6 +32,16 @@ export function Topbar({
         : "No server selected";
   return (
     <header className="topbar">
+      <button
+        className="sidebar-toggle ghost"
+        onClick={onToggleSidebar}
+        aria-controls="primary-sidebar"
+        aria-expanded={sidebarOpen}
+        aria-label={(sidebarOpen ? "Hide" : "Show") + " navigation sidebar"}
+        title={(sidebarOpen ? "Hide" : "Show") + " Servers and Terminal sidebar"}
+      >
+        <span aria-hidden="true">☰</span>
+      </button>
       <span className="brand">PVE Console</span>
       <span className="active-server">{description}</span>
       <span className="spacer" />
